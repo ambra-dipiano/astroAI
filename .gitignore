@@ -1,5 +1,7 @@
 # folders
 agile
+logs
+img
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
