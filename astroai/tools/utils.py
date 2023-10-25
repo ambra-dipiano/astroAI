@@ -14,6 +14,7 @@ from os.path import join, isfile
 from astropy.wcs import WCS
 from astropy.table import Table
 from scipy.ndimage import gaussian_filter
+from tqdm import tqdm
 
 # set WCS for plotting
 def set_wcs(point_ra, point_dec, point_ref, pixelsize):
@@ -78,11 +79,12 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     datasets = {'SRC': [], 'BKG': []}
     classes = datasets.keys()
     for k in classes:
+        print(f"Load {k} data...")
         if k == 'SRC':
             sample_size = src_sample
         elif k == 'BKG':
             sample_size = bkg_sample
-        for f in datafiles[k][:sample_size]:
+        for f in tqdm(datafiles[k][:sample_size]):
             # load
             heatmap = Table.read(f, hdu=1).to_pandas()
             # integrate exposure
@@ -94,7 +96,7 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     
     # save processed dataset
     if save and output is not None:
-        np.save(join(output, f'datasets_{exposure}.npy'), datasets, allow_pickle=True, fix_imports=True)
+        np.save(join(output, f'datasets_{exposure}s_{src_sample}src_{bkg_sample}bkg.npy'), datasets, allow_pickle=True, fix_imports=True)
     return datasets
 
 # split train and test datasets with labels
