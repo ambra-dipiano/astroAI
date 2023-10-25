@@ -2,6 +2,7 @@
 agile
 logs
 img
+conf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
