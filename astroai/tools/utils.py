@@ -93,6 +93,10 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
             heatmap = normalise_heatmap(heatmap)
             # add to dataset
             datasets[k].append(heatmap)
+
+    # convert to numpy array
+    datasets['BKG'] = np.array(datasets['BKG'])
+    datasets['SRC'] = np.array(datasets['SRC'])
     
     # save processed dataset
     if save and output is not None:
