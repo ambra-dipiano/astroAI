@@ -106,7 +106,9 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
 # split train and test datasets with labels
 def split_dataset(dataset, split=80, reshape=True, binning=250):
     total_size = len(dataset['SRC']) + len(dataset['BKG'])
-    train_size = (total_size / 100) * split
+    # train_size = split % of half total size (sum of src and bkg samples)
+    #TODO: instead of halving treat separately src and bkg sample sizes
+    train_size = int(((total_size / 100) * split) / 2)
     # train dataset
     train_src = np.copy(dataset['SRC'][:train_size])
     train_bkg = np.copy(dataset['SRC'][:train_size])
@@ -115,6 +117,7 @@ def split_dataset(dataset, split=80, reshape=True, binning=250):
     test_src = np.copy(dataset['SRC'][train_size:])
     test_bkg = np.copy(dataset['SRC'][train_size:])
     test_data = np.append(test_src, test_bkg, axis=0)
+    print(len(train_data), len(test_data))
     # labels
     train_labels = np.array([1 for f in range(len(train_src))] + [0 for f in range(len(train_bkg))])
     test_labels = np.array([1 for f in range(len(test_src))] + [0 for f in range(len(test_bkg))])
