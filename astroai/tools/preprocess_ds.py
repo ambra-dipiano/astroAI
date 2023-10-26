@@ -17,7 +17,7 @@ def main(configuration):
     bkg_dataset_path = join(conf['directory'], 'background', 'sim')
     trange = [conf['time_start'], conf['time_stop']]
     # create image dataset
-    ds = process_dataset(src_dataset_path, bkg_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], src_sample=conf['src_sample'], bkg_sample=conf['bkg_sample'], save=True, output=conf['directory'])
+    ds = process_dataset(src_dataset_path, bkg_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
