@@ -93,11 +93,10 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
             # integrate exposure
             heatmap = extract_heatmap(heatmap, trange, smoothing, binning)
             # normalise map
-            if normalise:
-                if min_max_norm is not None:
-                    normalise_dataset(heatmap, min_value=min_max_norm[0], max_value=min_max_norm[1])
-                else:
-                    heatmap = normalise_heatmap(heatmap)
+            if min_max_norm is not None:
+                normalise_dataset(heatmap, min_value=min_max_norm[0], max_value=min_max_norm[1])
+            else:
+                heatmap = normalise_heatmap(heatmap)
             # add to dataset
             datasets[k].append(heatmap)
 
@@ -111,7 +110,7 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     return datasets
 
 # gather simulations and create heatmaps
-def get_and_normalise_dataset(ds_path, sample, save=False, output=None, normalise=False, min_max_norm=None):
+def get_and_normalise_dataset(ds_path, sample, save=False, output=None, min_max_norm=None):
     datapath = {'SRC': join(ds_path, 'crab'), 'BKG': join(ds_path, 'background')}
 
     # datasets files
@@ -129,11 +128,10 @@ def get_and_normalise_dataset(ds_path, sample, save=False, output=None, normalis
             # load
             heatmap = np.load(f, allow_pickle=True, encoding='latin1', fix_imports=True).flat[0]
             # normalise map
-            if normalise:
-                if min_max_norm is not None:
-                    normalise_dataset(heatmap, min_value=min_max_norm[0], max_value=min_max_norm[1])
-                else:
-                    heatmap = normalise_heatmap(heatmap)
+            if min_max_norm is not None:
+                normalise_dataset(heatmap, min_value=min_max_norm[0], max_value=min_max_norm[1])
+            else:
+                heatmap = normalise_heatmap(heatmap)
             # add to dataset
             datasets[k].append(heatmap)
 
@@ -147,7 +145,7 @@ def get_and_normalise_dataset(ds_path, sample, save=False, output=None, normalis
     return datasets
 
 # split train and test datasets with labels
-def split_dataset(dataset, split=80, reshape=True, binning=250, normalise=True):
+def split_dataset(dataset, split=80, reshape=True, binning=250):
     total_size = len(dataset['SRC']) + len(dataset['BKG'])
     # train_size = split % of half total size (sum of src and bkg samples)
     #TODO: instead of halving treat separately src and bkg sample sizes
@@ -162,13 +160,6 @@ def split_dataset(dataset, split=80, reshape=True, binning=250, normalise=True):
     test_bkg = np.copy(dataset['SRC'][train_size:])
     test_data = np.append(test_src, test_bkg, axis=0)
     test_labels = np.array([1 for f in range(len(test_src))] + [0 for f in range(len(test_bkg))])
-    # normalise
-    if normalise:
-        min_value = np.min(train_bkg)
-        max_value = np.max(train_src)
-        print(f"norm min: {min_value}\nnorm max: {max_value}")
-        train_data = normalise_dataset(ds=train_data, min_value=min_value, max_value=max_value)
-        test_data = normalise_dataset(ds=test_data, min_value=min_value, max_value=max_value)
     # reshape
     if reshape:
         train_data = train_data.reshape(train_data.shape[0], binning, binning, 1)
