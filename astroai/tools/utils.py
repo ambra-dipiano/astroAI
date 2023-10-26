@@ -71,8 +71,8 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     plt.close()
     return
 
-# gather simulations and create dataset
-def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binning, src_sample, bkg_sample, save=False, output=None, normalise_single_map=False):
+# gather simulations and create heatmaps
+def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binning, src_sample, bkg_sample, save=False, output=None, normalise=False, min_max_norm=None):
     datapath = {'SRC': src_dataset_path, 'BKG': bkg_dataset_path}
     exposure = trange[1]-trange[0]
 
@@ -85,7 +85,6 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     # create images dataset 
     datasets = {'SRC': [], 'BKG': []}
     classes = datasets.keys()
-    min_value, max_value = 1, 0
     for k in classes:
         print(f"Load {k} data...")
         if k == 'SRC':
@@ -98,8 +97,11 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
             # integrate exposure
             heatmap = extract_heatmap(heatmap, trange, smoothing, binning)
             # normalise map
-            if normalise_single_map:
-                heatmap = normalise_heatmap(heatmap)
+            if normalise:
+                if min_max_norm is not None:
+                    normalise_dataset(heatmap, min_value=min_max_norm[0], max_value=min_max_norm[1])
+                else:
+                    heatmap = normalise_heatmap(heatmap)
             # add to dataset
             datasets[k].append(heatmap)
 
@@ -109,7 +111,43 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     
     # save processed dataset
     if save and output is not None:
-        np.save(join(output, f'datasets_{exposure}s_{src_sample}src_{bkg_sample}bkg.npy'), datasets, allow_pickle=True, fix_imports=True)
+        np.save(join(output, f'ds_{exposure}s_{src_sample}src_{bkg_sample}bkg.npy'), datasets, allow_pickle=True, fix_imports=True)
+    return datasets
+
+# gather simulations and create heatmaps
+def get_and_normalise_dataset(ds_path, sample, save=False, output=None, normalise=False, min_max_norm=None):
+    datapath = {'SRC': join(ds_path, 'crab'), 'BKG': join(ds_path, 'background')}
+
+    # datasets files
+    datafiles = {'SRC': [], 'BKG': []}
+    classes = datafiles.keys()
+    for k in classes:
+        datafiles[k] = sorted([join(datapath[k], f) for f in listdir(datapath[k]) if '.npy' in f and isfile(join(datapath[k], f))])
+        
+    # create images dataset 
+    datasets = {'SRC': [], 'BKG': []}
+    classes = datasets.keys()
+    for k in classes:
+        print(f"Load {k} data...")
+        for f in tqdm(datafiles[k][:sample]):
+            # load
+            heatmap = np.load(f, allow_pickle=True, encoding='latin1', fix_imports=True).flat[0]
+            # normalise map
+            if normalise:
+                if min_max_norm is not None:
+                    normalise_dataset(heatmap, min_value=min_max_norm[0], max_value=min_max_norm[1])
+                else:
+                    heatmap = normalise_heatmap(heatmap)
+            # add to dataset
+            datasets[k].append(heatmap)
+
+    # convert to numpy array
+    datasets['BKG'] = np.array(datasets['BKG'])
+    datasets['SRC'] = np.array(datasets['SRC'])
+    
+    # save processed dataset
+    if save and output is not None:
+        np.save(join(output, f'ds_normalised.npy'), datasets, allow_pickle=True, fix_imports=True)
     return datasets
 
 # split train and test datasets with labels
