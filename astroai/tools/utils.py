@@ -72,7 +72,7 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     return
 
 # gather simulations and create heatmaps
-def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binning, src_sample, bkg_sample, save=False, output=None, normalise=False, min_max_norm=None):
+def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binning, sample, save=False, output=None, normalise=False, min_max_norm=None):
     datapath = {'SRC': src_dataset_path, 'BKG': bkg_dataset_path}
     exposure = trange[1]-trange[0]
 
@@ -87,11 +87,7 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     classes = datasets.keys()
     for k in classes:
         print(f"Load {k} data...")
-        if k == 'SRC':
-            sample_size = src_sample
-        elif k == 'BKG':
-            sample_size = bkg_sample
-        for f in tqdm(datafiles[k][:sample_size]):
+        for f in tqdm(datafiles[k][:sample]):
             # load
             heatmap = Table.read(f, hdu=1).to_pandas()
             # integrate exposure
@@ -111,7 +107,7 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     
     # save processed dataset
     if save and output is not None:
-        np.save(join(output, f'ds_{exposure}s_{src_sample}src_{bkg_sample}bkg.npy'), datasets, allow_pickle=True, fix_imports=True)
+        np.save(join(output, f'ds_{exposure}s_{smoothing}sgm_{sample}sz.npy'), datasets, allow_pickle=True, fix_imports=True)
     return datasets
 
 # gather simulations and create heatmaps
