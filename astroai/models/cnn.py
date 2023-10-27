@@ -14,7 +14,7 @@ from os.path import join, isfile
 from astroai.tools.utils import load_yaml_conf, split_dataset
 TF_CPP_MIN_LOG_LEVEL="1"
 
-def create_cnn_detector():
+def create_cnn_binary_classifier():
     model = tf.keras.models.Sequential()
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Conv2D(2, (5, 5), activation='relu', input_shape=(250, 250, 1), name='conv2d_1'))
@@ -29,14 +29,14 @@ def create_cnn_detector():
     model.add(tf.keras.layers.Dense(2, activation='sigmoid', name='dense_2'))
     return model
 
-def compile_and_fit_detector(model, train_ds, test_ds, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True):
+def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True):
     logdir = join("logs", "cnn-classify") 
     if logdate:
         logdir += datetime.now().strftime("%Y%m%dT%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning), 
               loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
-    history = model.fit(train_ds, batch_size=batch_sz, epochs=epochs, validation_data=(test_ds), 
+    history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, validation_data=(test_ds, test_lb), 
             callbacks=[tensorboard_callback], shuffle=shuffle)
     return history
 
@@ -53,15 +53,15 @@ def main(configuration):
     train_data, train_labels, test_data, test_labels = split_dataset(ds, split=conf['detection']['split'], reshape=conf['detection']['reshape'], binning=conf['preprocess']['binning'])
 
     # create TF dataset
-    train_ds = tf.data.Dataset.from_tensor_slices((train_data, train_labels))
-    test_ds = tf.data.Dataset.from_tensor_slices((test_data, test_labels))
+    #train_ds = tf.data.Dataset.from_tensor_slices((train_data, train_labels))
+    #test_ds = tf.data.Dataset.from_tensor_slices((test_data, test_labels))
 
     # create model
-    model = create_cnn_detector()
+    model = create_cnn_binary_classifier()
     model.summary()
 
     # compile and fit
-    history = compile_and_fit_detector(model=model, train_ds=train_ds, test_ds=test_ds, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
+    history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
 
 
 
