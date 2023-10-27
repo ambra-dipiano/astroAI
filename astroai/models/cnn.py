@@ -14,23 +14,23 @@ from os.path import join, isfile
 from astroai.tools.utils import load_yaml_conf, split_dataset
 TF_CPP_MIN_LOG_LEVEL="1"
 
-def create_cnn_01():
+def create_cnn_detector():
     model = tf.keras.models.Sequential()
-    model.add(tf.keras.layers.Conv2D(2, (25, 25), activation='relu', input_shape=(250, 250, 1), name='conv2d_1'))
-    model.add(tf.keras.layers.MaxPooling2D((20, 20), name='maxpool2d_1'))
-    model.add(tf.keras.layers.Conv2D(2, (10, 10), activation='relu', name='conv2d_2'))
-    model.add(tf.keras.layers.MaxPooling2D((10, 10), name='maxpool2d_2'))
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.layers.Conv2D(2, (5, 5), activation='relu', input_shape=(250, 250, 1), name='conv2d_1'))
+    model.add(tf.keras.layers.MaxPooling2D((2, 2), name='maxpool2d_1'))
+    model.add(tf.keras.layers.Conv2D(2, (5, 5), activation='relu', name='conv2d_2'))
+    model.add(tf.keras.layers.MaxPooling2D((2, 2), name='maxpool2d_2'))
     model.add(tf.keras.layers.Conv2D(2, (5, 5), activation='relu', name='conv2d_3'))
-    model.add(tf.keras.layers.Dropout(0.2), name='drop_1')
-    # add dense layer
-    model.add(tf.keras.layers.Flatten(), name='flat_1')
+    model.add(tf.keras.layers.Dropout(0.2, name='drop_1'))
+    model.add(tf.keras.layers.Flatten(name='flat_1'))
     model.add(tf.keras.layers.Dense(10, activation='relu', name='dense_1'))
     model.add(tf.keras.layers.Dropout(0.2, name='drop_2'))
     model.add(tf.keras.layers.Dense(2, activation='sigmoid', name='dense_2'))
     return model
 
-def compile_and_fit(model, train_ds, test_ds, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True):
-    logdir = join("logs", "cnn-v01-detect") 
+def compile_and_fit_detector(model, train_ds, test_ds, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True):
+    logdir = join("logs", "cnn-classify") 
     if logdate:
         logdir += datetime.now().strftime("%Y%m%dT%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
@@ -57,11 +57,11 @@ def main(configuration):
     test_ds = tf.data.Dataset.from_tensor_slices((test_data, test_labels))
 
     # create model
-    model = create_cnn_01()
+    model = create_cnn_detector()
     model.summary()
 
     # compile and fit
-    history = compile_and_fit(model=model, train_ds=train_ds, test_ds=test_ds, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
+    history = compile_and_fit_detector(model=model, train_ds=train_ds, test_ds=test_ds, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
 
 
 

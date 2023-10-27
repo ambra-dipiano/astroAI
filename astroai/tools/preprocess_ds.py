@@ -8,16 +8,20 @@
 
 import argparse
 from os.path import join
-from astroai.tools.utils import load_yaml_conf, process_dataset
+from astroai.tools.utils import load_yaml_conf, process_dataset, get_min_max_norm
 
 def main(configuration):
     conf = load_yaml_conf(configuration)
     conf = conf['preprocess']
-    src_dataset_path = join(conf['directory'], 'crab', 'sim')
-    bkg_dataset_path = join(conf['directory'], 'background', 'sim')
+    if 'detect' in conf['mode']:
+        src_dataset_path = join(conf['directory'], 'crab', 'sim')
+        bkg_dataset_path = join(conf['directory'], 'background', 'sim')
+    elif 'clean' in conf['mode']:
+        src_dataset_path = join(conf['directory'], 'crab', 'theoretical')
+        bkg_dataset_path = join(conf['directory'], 'crab', 'sim')
     trange = [conf['time_start'], conf['time_stop']]
     # create image dataset
-    ds = process_dataset(src_dataset_path, bkg_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'])
+    ds = process_dataset(src_dataset_path, bkg_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], min_max_norm=conf['min_max_norm'], mode=conf['mode'])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
