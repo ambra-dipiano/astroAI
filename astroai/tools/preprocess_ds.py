@@ -8,7 +8,7 @@
 
 import argparse
 from os.path import join
-from astroai.tools.utils import load_yaml_conf, process_dataset, get_min_max_norm
+from astroai.tools.utils import load_yaml_conf, process_dataset
 
 def main(configuration):
     conf = load_yaml_conf(configuration)
@@ -17,7 +17,7 @@ def main(configuration):
         src_dataset_path = join(conf['directory'], 'crab', 'sim')
         bkg_dataset_path = join(conf['directory'], 'background', 'sim')
     elif 'clean' in conf['mode']:
-        src_dataset_path = join(conf['directory'], 'crab', 'theoretical')
+        src_dataset_path = join(conf['directory'], 'crab_only', 'sim')
         bkg_dataset_path = join(conf['directory'], 'crab', 'sim')
     trange = [conf['time_start'], conf['time_stop']]
     # create image dataset
