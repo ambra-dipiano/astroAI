@@ -98,6 +98,7 @@ def main(configuration, mode):
         # compile and fit
         history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
 
+    # background cleaner autoencoder
     elif 'clean' in mode:
         # split dataset
         train_clean, train_noisy, test_clean, test_noisy = split_noisy_dataset(ds, split=conf['detection']['split'], reshape=conf['detection']['reshape'], binning=conf['preprocess']['binning'])
