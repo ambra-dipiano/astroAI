@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 from datetime import datetime
 from os.path import join, isfile
-from astroai.tools.utils import load_yaml_conf, split_dataset
+from astroai.tools.utils import load_yaml_conf, split_dataset, split_noisy_dataset
 TF_CPP_MIN_LOG_LEVEL="1"
 
 def create_bkg_cleaner(binning):
@@ -97,6 +97,15 @@ def main(configuration, mode):
         model = create_binary_classifier(binning=conf['preprocess']['binning'])
         # compile and fit
         history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
+
+    elif 'clean' in mode:
+        # split dataset
+        train_clean, train_noisy, test_clean, test_noisy = split_noisy_dataset(ds, split=conf['detection']['split'], reshape=conf['detection']['reshape'], binning=conf['preprocess']['binning'])
+        # create model
+        model = create_bkg_cleaner(binning=conf['preprocess']['binning'])
+        # compile and fit
+        history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
+
 
     else:
         raise ValueError('Not implemented yet')
