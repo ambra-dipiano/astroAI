@@ -237,8 +237,6 @@ def stretch_min_max(heatmap, vmax, vmin=0):
     if np.min(heatmap)<0: # if the min is less that zero, first we add min to all pixels so min becomes 0
         heatmap = heatmap + np.abs(np.min(heatmap)) 
     heatmap = heatmap / np.max(heatmap)
-    std = np.std(heatmap)
-    mean = np.mean(heatmap)
     heatmap = (heatmap-vmin)/(vmax-vmin)
     # this streching cuases the values less than `mean-simga*std` to become negative
     # so we clip the values less than 0 
