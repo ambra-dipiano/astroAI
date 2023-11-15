@@ -9,9 +9,8 @@
 import argparse
 import numpy as np
 import tensorflow as tf
-from datetime import datetime
 from os.path import join, isfile
-from astroai.tools.utils import load_yaml_conf, split_dataset, split_noisy_dataset, tensorboard_logdir
+from astroai.tools.utils import load_yaml_conf, split_dataset, split_noisy_dataset, tensorboard_logdir, load_dataset_npy
 TF_CPP_MIN_LOG_LEVEL="1"
 
 
@@ -35,9 +34,8 @@ def create_bkg_cleaner(binning):
     autoencoder.summary()
     return autoencoder
 
-def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, test_clean, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True, suffix=None):
+def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, test_clean, logdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True, suffix=None):
     # tensorboard
-    logdir = tensorboard_logdir(suffix=suffix, logdate=logdate)
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
@@ -63,9 +61,8 @@ def create_binary_classifier(binning):
     model.summary()
     return model
 
-def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True, suffix=None):
+def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, logdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True):
     # tensorboard
-    logdir = tensorboard_logdir(suffix=suffix, logdate=logdate)
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
@@ -77,32 +74,31 @@ def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_l
 
 def main(configuration, mode):
     conf = load_yaml_conf(configuration)
-    exposure = conf['preprocess']['time_stop'] - conf['preprocess']['time_start']
-    sample = conf['preprocess']['sample']
-    smoothing = conf['preprocess']['smoothing']
-    filename = join(conf['preprocess']['directory'], f"{mode}_{exposure}s_{smoothing}sgm_{sample}sz.npy") 
+    filename = join(conf['cnn']['directory'], conf['cnn']['dataset'])
     if isfile(filename):
-        ds = np.load(filename, allow_pickle=True, encoding='latin1', fix_imports=True).flat[0]
+        ds = load_dataset_npy(filename)
     else:
         raise FileNotFoundError(filename)
 
+    logdir = tensorboard_logdir(mode=mode, suffix=conf['cnn']['suffix'], logdate=True)
+
     # binary classification network
-    if ('detect' or 'class') in mode:
+    if ('detect' in mode or 'class' in mode):
         # split dataset
-        train_data, train_labels, test_data, test_labels = split_dataset(ds, split=conf['detection']['split'], reshape=conf['detection']['reshape'], binning=conf['preprocess']['binning'])
+        train_data, train_labels, test_data, test_labels = split_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
         # create model
         model = create_binary_classifier(binning=conf['preprocess']['binning'])
         # compile and fit
-        history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
+        history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'])
 
     # background cleaner autoencoder
     elif 'clean' in mode:
         # split dataset
-        train_clean, train_noisy, test_clean, test_noisy = split_noisy_dataset(ds, split=conf['detection']['split'], reshape=conf['detection']['reshape'], binning=conf['preprocess']['binning'])
+        train_clean, train_noisy, test_clean, test_noisy = split_noisy_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
         # create model
         model = create_bkg_cleaner(binning=conf['preprocess']['binning'])
         # compile and fit
-        history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, batch_sz=conf['detection']['batch_sz'], epochs=conf['detection']['epochs'], shuffle=conf['detection']['shuffle'], learning=conf['detection']['learning'])
+        history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'])
 
 
     else:
@@ -114,7 +110,8 @@ def main(configuration, mode):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
-    parser.add_argument('-m', '--mode', type=str, required=True, choices=['classify', 'cleaning', 'detection', 'localisation'], help="scope of the CNN and thus related network")
+    parser.add_argument('-m', '--mode', type=str, required=True, choices=['classify', 'cleaning', 'cnn', 'localisation'], help="scope of the CNN and thus related network")
     args = parser.parse_args()
 
+    print(f"\n\n{'!'*3} CNN {args.mode.upper()} {'!'*3}\n\n")
     main(args.configuration, args.mode)
