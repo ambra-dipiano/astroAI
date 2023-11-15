@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from os import listdir
 from os.path import join, isfile
+from datetime import datetime
 from astropy.wcs import WCS
 from astropy.table import Table
 from scipy.ndimage import gaussian_filter
@@ -242,3 +243,11 @@ def stretch_min_max(heatmap, vmax, vmin=0):
     # so we clip the values less than 0 
     heatmap[heatmap<0]=0
     return heatmap
+
+def tensorboard_logdir(suffix, logdate):
+    logdir = join("logs", "cnn_clean")
+    if suffix is not None:
+        logdir += '_' + suffix
+    if logdate:
+        logdir += '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
+    return logdir

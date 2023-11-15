@@ -11,8 +11,9 @@ import numpy as np
 import tensorflow as tf
 from datetime import datetime
 from os.path import join, isfile
-from astroai.tools.utils import load_yaml_conf, split_dataset, split_noisy_dataset
+from astroai.tools.utils import load_yaml_conf, split_dataset, split_noisy_dataset, tensorboard_logdir
 TF_CPP_MIN_LOG_LEVEL="1"
+
 
 def create_bkg_cleaner(binning):
     input_shape = tf.keras.Input(shape=(binning, binning, 1))
@@ -34,11 +35,9 @@ def create_bkg_cleaner(binning):
     autoencoder.summary()
     return autoencoder
 
-def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, test_clean, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True):
+def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, test_clean, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True, suffix=None):
     # tensorboard
-    if logdate:
-        logdir += datetime.now().strftime("%Y%m%dT%H%M%S")
-    logdir = join("logs", "cnn-v01-clean" + datetime.now().strftime("%Y%m%dT%H%M%S"))
+    logdir = tensorboard_logdir(suffix=suffix, logdate=logdate)
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
@@ -64,11 +63,9 @@ def create_binary_classifier(binning):
     model.summary()
     return model
 
-def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True):
+def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True, suffix=None):
     # tensorboard
-    logdir = join("logs", "cnn-classify") 
-    if logdate:
-        logdir += datetime.now().strftime("%Y%m%dT%H%M%S")
+    logdir = tensorboard_logdir(suffix=suffix, logdate=logdate)
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
