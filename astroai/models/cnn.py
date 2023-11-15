@@ -41,9 +41,9 @@ def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, tes
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.binary_crossentropy, metrics=['accuracy'])
     # fit
-    history = model.fit(train_noisy, train_clean, epochs=epochs, batch_size=batch_sz, shuffle=shuffle,
-                    validation_data=(test_noisy, test_clean),
-                    callbacks=[tensorboard_callback])
+    history = model.fit(train_noisy, train_clean, epochs=epochs, batch_size=batch_sz,
+                        validation_data=(test_noisy, test_clean), shuffle=shuffle,
+                        callbacks=[tensorboard_callback, tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")])
     return history
 
 def create_binary_classifier(binning):
@@ -69,7 +69,8 @@ def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_l
                   loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
     # fit
     history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, 
-                        validation_data=(test_ds, test_lb), callbacks=[tensorboard_callback], shuffle=shuffle)
+                        validation_data=(test_ds, test_lb), shuffle=shuffle,
+                        callbacks=[tensorboard_callback, tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")])
     return history
 
 def main(configuration, mode):
@@ -110,7 +111,7 @@ def main(configuration, mode):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
-    parser.add_argument('-m', '--mode', type=str, required=True, choices=['classify', 'cleaning', 'cnn', 'localisation'], help="scope of the CNN and thus related network")
+    parser.add_argument('-m', '--mode', type=str, required=True, choices=['classify', 'clean', 'localise'], help="scope of the CNN and thus related network")
     args = parser.parse_args()
 
     print(f"\n\n{'!'*3} CNN {args.mode.upper()} {'!'*3}\n\n")
