@@ -1,8 +1,6 @@
 # astroAI
 
-## Setup
-
-You should clone the repository and move into its root directory to work.
+You may clone the repository and move into its root directory to work.
 
 Step1:
 ```bash
