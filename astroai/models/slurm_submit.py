@@ -19,7 +19,7 @@ def main(architecture, filename, mode):
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
         f.write(f"\nsource {join(expandvars('$HOME'), 'venvs/astroai/bin/activate')}")
-        f.write(f"\n\tpython {join(dirname(abspath(__file__)).replace('tools', 'models'), architecture)}.py -f {filename} -m {mode}\n")
+        f.write(f"\n\tpython {join(dirname(abspath(__file__)), architecture)}.py -f {filename} -m {mode}\n")
 
     # write job
     job_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.ll')
