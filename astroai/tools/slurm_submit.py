@@ -9,33 +9,39 @@
 
 import argparse
 from os import system
-from os.path import abspath, join, basename, expandvars
+from os.path import abspath, join, expandvars, dirname
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
-parser.add_argument('-a', '--architecture', type=str, required=True, choices=['cnn'], help='Architecture of the model')
-parser.add_argument('-m', '--mode', type=str, required=False, choices=['clean', 'classify', 'detect'], help='Scope of the model')
-args = parser.parse_args()
+def main(architecture, filename, mode):
+    job_name = f'{architecture}_train'
+    script = f'{architecture}'
+    # write bash
+    sh_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.sh')
+    with open(sh_outname, 'w+') as f:
+        f. write("#!/bin/bash\n")
+        f.write(f"\nsource {join(expandvars('$HOME'), 'venvs/astroai/bin/activate')}")
+        f.write(f"\n\tpython {join(dirname(abspath(__file__)).replace('tools', 'models'), architecture)}.py -f {filename} -m {mode}\n")
 
-job_name = f'{args.architecture}_train'
-script = f'{args.architecture}'
-# write bash
-sh_outname = join(basename(abspath(__file__)), 'slurms', f'{job_name}.sh')
-with open(sh_outname, 'w+') as f:
-    f. write("#!/bin/bash\n")
-    f.write(f"\nsource {join(expandvars('HOME'), 'venvs/astroai/bin/activate')}")
-    f.write(f"\n\tpython {join(basename(abspath(__file__)).replace('tools', 'models'), args.architecture)}.py -f {args.filename} -m {args.mode}\n")
+    # write job
+    job_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.ll')
+    job_outlog = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.log')
+    with open(job_outname, 'w+') as f:
+        f.write('#!/bin/bash')
+        f.write(f'\n\n#SBATCH --job-name={job_name}')
+        f.write(f'\n#SBATCH --output={job_outlog}')
+        f.write('\n#SBATCH --account=dipiano')
+        f.write('\n#SBATCH --partition=large')
+        f.write(f'\n\nexec sh {str(sh_outname)}\n')
 
-# write job
-job_outname = join(basename(abspath(__file__)), 'slurms', f'{job_name}.ll')
-job_outlog = join(basename(abspath(__file__)), 'slurms', f'{job_name}.log')
-with open(job_outname, 'w+') as f:
-    f.write('#!/bin/bash')
-    f.write(f'\n\n#SBATCH --job-name={job_name}')
-    f.write(f'\n#SBATCH --output={job_outlog}')
-    f.write('\n#SBATCH --account=dipiano')
-    f.write('\n#SBATCH --partition=large_lc')
-    f.write(f'\n\nexec sh {str(sh_outname)}\n')
+    # sbatch job
+    system(f'sbatch {job_outname}')
 
-# sbatch job
-system(f'sbatch {job_outname}')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', '--architecture', type=str, required=True, choices=['cnn'], help='Architecture of the model')
+    parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
+    parser.add_argument('-m', '--mode', type=str, required=False, choices=['clean', 'classify', 'detect'], help='Scope of the model')
+    args = parser.parse_args()
+
+    main(args.architecture, args.filename, args.mode)
+
+
