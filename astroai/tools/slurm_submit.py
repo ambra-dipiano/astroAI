@@ -1,0 +1,41 @@
+# *******************************************************************************
+# Copyright (C) 2023 INAF
+#
+# This software is distributed under the terms of the BSD-3-Clause license
+#
+# Authors:
+# Ambra Di Piano <ambra.dipiano@inaf.it>
+# *******************************************************************************
+
+import argparse
+from os import system
+from os.path import abspath, join, basename, expandvars
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
+parser.add_argument('-a', '--architecture', type=str, required=True, choices=['cnn'], help='Architecture of the model')
+parser.add_argument('-m', '--mode', type=str, required=False, choices=['clean', 'classify', 'detect'], help='Scope of the model')
+args = parser.parse_args()
+
+job_name = f'{args.architecture}_train'
+script = f'{args.architecture}'
+# write bash
+sh_outname = join(basename(abspath(__file__)), 'slurms', f'{job_name}.sh')
+with open(sh_outname, 'w+') as f:
+    f. write("#!/bin/bash\n")
+    f.write(f"\nsource {join(expandvars('HOME'), 'venvs/astroai/bin/activate')}")
+    f.write(f"\n\tpython {join(basename(abspath(__file__)).replace('tools', 'models'), args.architecture)}.py -f {args.filename} -m {args.mode}\n")
+
+# write job
+job_outname = join(basename(abspath(__file__)), 'slurms', f'{job_name}.ll')
+job_outlog = join(basename(abspath(__file__)), 'slurms', f'{job_name}.log')
+with open(job_outname, 'w+') as f:
+    f.write('#!/bin/bash')
+    f.write(f'\n\n#SBATCH --job-name={job_name}')
+    f.write(f'\n#SBATCH --output={job_outlog}')
+    f.write('\n#SBATCH --account=dipiano')
+    f.write('\n#SBATCH --partition=large_lc')
+    f.write(f'\n\nexec sh {str(sh_outname)}\n')
+
+# sbatch job
+system(f'sbatch {job_outname}')
