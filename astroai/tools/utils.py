@@ -73,7 +73,7 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     return
 
 # gather simulations and create heatmaps 
-def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binning, sample, save=False, output=None, min_max_norm=1, mode='ds'):
+def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binning, sample, save=False, output=None, min_max_norm=1, mode='ds', suffix=None):
     datapath = {'SRC': src_dataset_path, 'BKG': bkg_dataset_path}
     exposure = trange[1]-trange[0]
 
@@ -122,7 +122,11 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
     
     # save processed dataset
     if save and output is not None:
-        np.save(join(output, f'{mode}_{exposure}s_{smoothing}sgm_{sample}sz.npy'), datasets, allow_pickle=True, fix_imports=True)
+        filename = join(output, f'{mode}_{exposure}s_{smoothing}sgm_{sample}sz.npy')
+        if suffix is not None:
+            filename = filename.replace('.npy', f'{suffix}.npy')
+        np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+        print(f"Process complete: {filename}")
     return datasets
 
 # gather simulations and create heatmaps
