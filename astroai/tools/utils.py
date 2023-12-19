@@ -14,6 +14,7 @@ from os.path import join, isfile
 from datetime import datetime
 from astropy.wcs import WCS
 from astropy.table import Table
+from astropy.io import fits
 from scipy.ndimage import gaussian_filter
 from tqdm import tqdm
 
@@ -30,11 +31,23 @@ def set_wcs(point_ra, point_dec, point_ref, pixelsize):
     return w
 
 # extract heatmap from DL3 with configurable exposure
-def extract_heatmap(data, trange, smoothing, nbins, save=False, save_name=None):
-    data = data[(data['TIME'] >= trange[0]) & (data['TIME'] <= trange[1])] 
-    ra = data['RA'].to_numpy()
-    dec = data['DEC'].to_numpy()
+def extract_heatmap(data, trange, smoothing, nbins, save=False, save_name=None, filter=True):
+    if filter:
+        data = data[(data['TIME'] >= trange[0]) & (data['TIME'] <= trange[1])] 
+        ra = data['RA'].to_numpy()
+        dec = data['DEC'].to_numpy()
+    else:
+        ra = data.field('RA')
+        dec = data.field('DEC')
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
+    if smoothing != 0:
+        heatmap = gaussian_filter(heatmap, sigma=smoothing)
+    if save and save_name is not None:
+        np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
+    return heatmap.T
+
+# smooth heatmap from DL4 
+def smooth_heatmap(heatmap, smoothing, save=False, save_name=None):
     if smoothing != 0:
         heatmap = gaussian_filter(heatmap, sigma=smoothing)
     if save and save_name is not None:
@@ -73,27 +86,32 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     return
 
 # gather simulations and create heatmaps 
-def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binning, sample, save=False, output=None, min_max_norm=1, mode='ds', suffix=None):
-    datapath = {'SRC': src_dataset_path, 'BKG': bkg_dataset_path}
+def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binning, sample, save=False, output=None, min_max_norm=1, mode='ds', suffix=None, dl=3):
+    datapath = {'DS1': ds1_dataset_path, 'DS2': ds2_dataset_path}
     exposure = trange[1]-trange[0]
 
     # datasets files
-    datafiles = {'SRC': [], 'BKG': []}
+    datafiles = {'DS1': [], 'DS2': []}
     classes = datafiles.keys()
     for k in classes:
         datafiles[k] = sorted([join(datapath[k], f) for f in listdir(datapath[k]) if '.fits' in f and isfile(join(datapath[k], f))])
 
         
     # create images dataset 
-    datasets = {'SRC': [], 'BKG': []}
+    datasets = {'DS1': [], 'DS2': []}
     classes = datasets.keys()
     for k in classes:
         print(f"Load {k} data...")
         for f in tqdm(datafiles[k][:sample]):
             # load
-            heatmap = Table.read(f, hdu=1).to_pandas()
-            # integrate exposure
-            heatmap = extract_heatmap(heatmap, trange, smoothing, binning)
+            if dl == 3:
+                heatmap = Table.read(f, hdu=1).to_pandas()
+                # integrate exposure
+                heatmap = extract_heatmap(heatmap, trange, smoothing, binning)
+            elif dl == 4:
+                with fits.open(f) as h:
+                    heatmap = smooth_heatmap(h[0].data, smoothing)
+
             # normalise map
             if min_max_norm == 1:
                 if 'detect' in mode:
@@ -117,30 +135,30 @@ def process_dataset(src_dataset_path, bkg_dataset_path, trange, smoothing, binni
             datasets[k].append(heatmap)
 
     # convert to numpy array
-    datasets['BKG'] = np.array(datasets['BKG'])
-    datasets['SRC'] = np.array(datasets['SRC'])
+    datasets['DS2'] = np.array(datasets['DS2'])
+    datasets['DS1'] = np.array(datasets['DS1'])
     
     # save processed dataset
     if save and output is not None:
         filename = join(output, f'{mode}_{exposure}s_{smoothing}sgm_{sample}sz.npy')
         if suffix is not None:
-            filename = filename.replace('.npy', f'{suffix}.npy')
+            filename = filename.replace('.npy', f'_{suffix}.npy')
         np.save(filename, datasets, allow_pickle=True, fix_imports=True)
         print(f"Process complete: {filename}")
     return datasets
 
 # gather simulations and create heatmaps
 def get_and_normalise_dataset(ds_path, sample, save=False, output=None, min_max_norm=None):
-    datapath = {'SRC': join(ds_path, 'crab'), 'BKG': join(ds_path, 'background')}
+    datapath = {'DS1': join(ds_path, 'crab'), 'DS2': join(ds_path, 'background')}
 
     # datasets files
-    datafiles = {'SRC': [], 'BKG': []}
+    datafiles = {'DS1': [], 'DS2': []}
     classes = datafiles.keys()
     for k in classes:
         datafiles[k] = sorted([join(datapath[k], f) for f in listdir(datapath[k]) if '.npy' in f and isfile(join(datapath[k], f))])
         
     # create images dataset 
-    datasets = {'SRC': [], 'BKG': []}
+    datasets = {'DS1': [], 'DS2': []}
     classes = datasets.keys()
     for k in classes:
         print(f"Load {k} data...")
@@ -156,8 +174,8 @@ def get_and_normalise_dataset(ds_path, sample, save=False, output=None, min_max_
             datasets[k].append(heatmap)
 
     # convert to numpy array
-    datasets['BKG'] = np.array(datasets['BKG'])
-    datasets['SRC'] = np.array(datasets['SRC'])
+    datasets['DS2'] = np.array(datasets['DS2'])
+    datasets['DS1'] = np.array(datasets['DS1'])
     
     # save processed dataset
     if save and output is not None:
@@ -166,18 +184,18 @@ def get_and_normalise_dataset(ds_path, sample, save=False, output=None, min_max_
 
 # split train and test datasets with labels
 def split_dataset(dataset, split=80, reshape=True, binning=250):
-    total_size = len(dataset['SRC']) + len(dataset['BKG'])
+    total_size = len(dataset['DS1']) + len(dataset['DS2'])
     # train_size = split % of half total size (sum of src and bkg samples)
     #TODO: instead of halving treat separately src and bkg sample sizes
     train_size = int(((total_size / 100) * split) / 2)
     # train dataset
-    train_src = np.copy(dataset['SRC'][:train_size])
-    train_bkg = np.copy(dataset['BKG'][:train_size])
+    train_src = np.copy(dataset['DS1'][:train_size])
+    train_bkg = np.copy(dataset['DS2'][:train_size])
     train_data = np.append(train_src, train_bkg, axis=0) 
     train_labels = np.array([1 for f in range(len(train_src))] + [0 for f in range(len(train_bkg))])
     # test dataset
-    test_src = np.copy(dataset['SRC'][train_size:])
-    test_bkg = np.copy(dataset['BKG'][train_size:])
+    test_src = np.copy(dataset['DS1'][train_size:])
+    test_bkg = np.copy(dataset['DS2'][train_size:])
     test_data = np.append(test_src, test_bkg, axis=0)
     test_labels = np.array([1 for f in range(len(test_src))] + [0 for f in range(len(test_bkg))])
     # reshape
@@ -189,16 +207,16 @@ def split_dataset(dataset, split=80, reshape=True, binning=250):
     return train_data, train_labels, test_data, test_labels
 
 def split_noisy_dataset(dataset, split=80, reshape=True, binning=250):
-    size = len(dataset['SRC'])
+    size = len(dataset['DS1'])
     # train_size = split % of half total size (sum of src and bkg samples)
     #TODO: instead of halving treat separately src and bkg sample sizes
     train_size = int((size / 100) * split)
     # train dataset
-    train_clean = np.copy(dataset['SRC'][:train_size])
-    train_noisy = np.copy(dataset['BKG'][:train_size])
+    train_clean = np.copy(dataset['DS1'][:train_size])
+    train_noisy = np.copy(dataset['DS2'][:train_size])
     # test dataset
-    test_clean = np.copy(dataset['SRC'][train_size:])
-    test_noisy = np.copy(dataset['BKG'][train_size:])
+    test_clean = np.copy(dataset['DS1'][train_size:])
+    test_noisy = np.copy(dataset['DS2'][train_size:])
     # reshape
     if reshape:
         train_clean = train_clean.reshape(train_clean.shape[0], binning, binning, 1)
