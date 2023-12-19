@@ -95,7 +95,7 @@ def main(configuration, mode):
     # background cleaner autoencoder
     elif 'clean' in mode:
         # split dataset
-        train_clean, train_noisy, test_clean, test_noisy = split_noisy_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
+        train_noisy,train_clean, test_noisy, test_clean = split_noisy_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
         # create model
         model = create_bkg_cleaner(binning=conf['preprocess']['binning'])
         # compile and fit
