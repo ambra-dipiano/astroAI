@@ -268,10 +268,10 @@ def stretch_min_max(heatmap, vmax, vmin=0):
 
 def tensorboard_logdir(mode, suffix, logdate):
     logdir = join("logs", f"cnn_{mode}")
-    if suffix is not None:
-        logdir += '_' + suffix
     if logdate:
         logdir += '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
+    if suffix is not None:
+        logdir += '_' + suffix
     return logdir
 
 def load_dataset_npy(path):
