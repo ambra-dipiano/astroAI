@@ -10,10 +10,10 @@
 import argparse
 from os import system
 from os.path import abspath, join, expandvars, dirname
+from datetime import datetime
 
 def main(architecture, filename, mode):
-    job_name = f'{architecture}_train'
-    script = f'{architecture}'
+    job_name = f'{architecture}_{mode}_{datetime.now().strftime("%Y%m%dT%H%M%S")}'
     # write bash
     sh_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.sh')
     with open(sh_outname, 'w+') as f:
