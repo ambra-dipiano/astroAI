@@ -12,7 +12,7 @@ from os import system
 from os.path import abspath, join, expandvars, dirname
 
 def main(script, filename):
-    job_name = f'{script}_train'
+    job_name = f'{script}'
     script = f'{script}'
     # write bash
     sh_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.sh')
@@ -37,7 +37,7 @@ def main(script, filename):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--script', type=str, required=True, choices=['cnn'], help='Script to submit')
+    parser.add_argument('-s', '--script', type=str, required=True, choices=['preprocess_ds', 'normalise_ds', 'load_and_normalise_maps'], help='Script to submit')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
     args = parser.parse_args()
 
