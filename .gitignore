@@ -3,6 +3,7 @@ agile
 logs
 img
 conf
+checkpoints
 
 # files
 *.out
