@@ -12,7 +12,6 @@ from os.path import join, isfile
 from astroai.tools.utils import *
 TF_CPP_MIN_LOG_LEVEL="1"
 
-
 def create_bkg_cleaner(binning):
     input_shape = tf.keras.Input(shape=(binning, binning, 1))
     # encoder
@@ -57,6 +56,15 @@ def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, tes
         model.save(f"{savename}.keras")
     return history
 
+def cnn_bkg_cleaner(ds, conf, logdir, cpdir):
+    # split dataset
+    train_noisy,train_clean, test_noisy, test_clean = split_noisy_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
+    # create model
+    model = create_bkg_cleaner(binning=conf['preprocess']['binning'])
+    # compile and fit
+    history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
+    return
+
 def create_binary_classifier(binning):
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Conv2D(2, (5, 5), activation='relu', input_shape=(binning, binning, 1), name='conv2d_1'))
@@ -91,6 +99,52 @@ def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_l
         model.save(f"{savename}.keras")
     return history
 
+def cnn_binary_classifier(ds, conf, logdir, cpdir):
+    # split dataset
+    train_data, train_labels, test_data, test_labels = split_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
+    # create model
+    model = create_binary_classifier(binning=conf['preprocess']['binning'])
+    # compile and fit
+    history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
+    return history
+
+def create_loc_regressor(binning, number_of_conv=4):
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.layers.Conv2D(6, kernel_size=(12, 12), activation='relu', input_shape=(binning,binning,1)))
+    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+    for i in range(number_of_conv):
+        model.add(tf.keras.layers.Conv2D(12, (6, 6), activation='relu'))
+    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+    model.add(tf.keras.layers.Dropout(0.4))
+    model.add(tf.keras.layers.Flatten())
+    model.add(tf.keras.layers.Dense(10000, activation='relu'))
+    model.add(tf.keras.layers.Dropout(0.4))
+    model.add(tf.keras.layers.Dense(2, activation='sigmoid'))
+    model.summary()
+    return model
+
+def compile_and_fit_loc_regressor(model, train_ds, train_lb, test_ds, test_lb, logdir, cpdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, savename=None):
+    # callbacks
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
+    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1,
+                                                              save_freq=5*int(len(train_ds) / batch_sz))
+    earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")
+
+    # compile
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
+                  loss=tf.keras.losses.mae, metrics=['accuracy'])
+    # fit
+    history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, 
+                        validation_data=(test_ds, test_lb), shuffle=shuffle,
+                        callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
+
+    if savename is not None:
+        model.save(f"{savename}.keras")
+    return history
+
+def cnn_loc_regressor(ds, conf, logdir, cpdir):
+    return
+
 def main(configuration, mode):
     conf = load_yaml_conf(configuration)
     filename = join(conf['cnn']['directory'], conf['cnn']['dataset'])
@@ -104,22 +158,15 @@ def main(configuration, mode):
 
     # binary classification network
     if ('detect' in mode or 'class' in mode):
-        # split dataset
-        train_data, train_labels, test_data, test_labels = split_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
-        # create model
-        model = create_binary_classifier(binning=conf['preprocess']['binning'])
-        # compile and fit
-        history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
+        history = cnn_binary_classifier(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
 
     # background cleaner autoencoder
     elif 'clean' in mode:
-        # split dataset
-        train_noisy,train_clean, test_noisy, test_clean = split_noisy_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
-        # create model
-        model = create_bkg_cleaner(binning=conf['preprocess']['binning'])
-        # compile and fit
-        history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
+        history = cnn_bkg_cleaner(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
 
+    # hotspots identification regressor
+    elif 'loc' in mode:
+        history = cnn_loc_regressor(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
 
     else:
         raise ValueError('Not implemented yet')
