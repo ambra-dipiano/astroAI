@@ -8,6 +8,7 @@
 
 import yaml
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from os import listdir
 from os.path import join, isfile
@@ -31,14 +32,11 @@ def set_wcs(point_ra, point_dec, point_ref, pixelsize):
     return w
 
 # extract heatmap from DL3 with configurable exposure
-def extract_heatmap(data, trange, smoothing, nbins, save=False, save_name=None, filter=True):
-    if filter:
+def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=True, trange=None):
+    if filter and trange is not None:
         data = data[(data['TIME'] >= trange[0]) & (data['TIME'] <= trange[1])] 
-        ra = data['RA'].to_numpy()
-        dec = data['DEC'].to_numpy()
-    else:
-        ra = data.field('RA')
-        dec = data.field('DEC')
+    ra = data['RA'].to_numpy()
+    dec = data['DEC'].to_numpy()
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
     if smoothing != 0:
         heatmap = gaussian_filter(heatmap, sigma=smoothing)
@@ -86,7 +84,7 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     return
 
 # gather simulations and create heatmaps 
-def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binning, sample, save=False, output=None, min_max_norm=1, mode='ds', suffix=None, dl=3):
+def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binning, sample, save=False, output=None, norm_value=1, mode='ds', suffix=None, dl=3):
     datapath = {'DS1': ds1_dataset_path, 'DS2': ds2_dataset_path}
     exposure = trange[1]-trange[0]
 
@@ -113,20 +111,20 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binni
                     heatmap = smooth_heatmap(h[0].data, smoothing)
 
             # normalise map
-            if min_max_norm == 1:
+            if norm_value == 1:
                 if 'detect' in mode:
                     heatmap = stretch_smooth(heatmap, smoothing)
                 elif 'clean' in mode:
                     heatmap = normalise_heatmap(heatmap)
                 else:
                     pass
-            elif min_max_norm == 0:
+            elif norm_value == 0:
                 continue
             else:
                 if 'detect' in mode:
-                    heatmap = stretch_min_max(heatmap, vmax=min_max_norm)
+                    heatmap = stretch_min_max(heatmap, vmax=norm_value)
                 elif 'clean' in mode:
-                    heatmap = normalise_dataset(heatmap, max_value=min_max_norm)
+                    heatmap = normalise_dataset(heatmap, max_value=norm_value)
                 else: 
                     pass
             # add to dataset
@@ -147,8 +145,57 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binni
         print(f"Process complete: {filename}")
     return datasets
 
+# gather simulations and create heatmaps for regressor
+def process_regressor_dataset(ds_dataset_path, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, suffix=None, dl=3):
+    datapath = {'DS': ds_dataset_path}
+
+    # datasets files
+    datafiles = {'DS': []}
+    datafiles['DS'] = sorted([join(datapath['DS'], f) for f in listdir(datapath['DS']) if '.fits' in f and isfile(join(datapath['DS'], f))])
+        
+    # create images dataset 
+    datasets = {'DS': []}
+    print(f"Load DS data...")
+    for f in tqdm(datafiles['DS'][:sample]):
+        # load
+        if dl == 3:
+            heatmap = Table.read(f, hdu=1).to_pandas()
+            # integrate exposure
+            heatmap = extract_heatmap(heatmap, smoothing, binning)
+        elif dl == 4:
+            with fits.open(f) as h:
+                heatmap = smooth_heatmap(h[0].data, smoothing)
+
+        # normalise map
+        if norm_single_map:
+            if stretch:
+                heatmap = stretch_smooth(heatmap, smoothing)
+            else:
+                heatmap = normalise_heatmap(heatmap)
+        else:
+            if stretch:
+                heatmap = stretch_min_max(heatmap, vmax=norm_value)
+            else:
+                heatmap = normalise_dataset(heatmap, max_value=norm_value)
+        # add to dataset
+        if heatmap.shape != (binning, binning):
+            heatmap.reshape(binning, binning)
+        datasets['DS'].append(heatmap)
+
+    # convert to numpy array
+    datasets['DS'] = np.array(datasets['DS'])
+    
+    # save processed dataset
+    if save and output is not None:
+        filename = join(output, f'regression_{smoothing}sgm_{sample}sz.npy')
+        if suffix is not None:
+            filename = filename.replace('.npy', f'_{suffix}.npy')
+        np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+        print(f"Process complete: {filename}")
+    return datasets
+
 # gather simulations and create heatmaps
-def get_and_normalise_dataset(ds_path, sample, save=False, output=None, min_max_norm=None):
+def get_and_normalise_dataset(ds_path, sample, save=False, output=None, norm_value=None):
     datapath = {'DS1': join(ds_path, 'crab'), 'DS2': join(ds_path, 'background')}
 
     # datasets files
@@ -166,8 +213,8 @@ def get_and_normalise_dataset(ds_path, sample, save=False, output=None, min_max_
             # load
             heatmap = np.load(f, allow_pickle=True, encoding='latin1', fix_imports=True).flat[0]
             # normalise map
-            if min_max_norm is not None:
-                normalise_dataset(heatmap, min_value=min_max_norm[0], max_value=min_max_norm[1])
+            if norm_value is not None:
+                normalise_dataset(heatmap, min_value=norm_value[0], max_value=norm_value[1])
             else:
                 heatmap = normalise_heatmap(heatmap)
             # add to dataset
@@ -206,6 +253,27 @@ def split_dataset(dataset, split=80, reshape=True, binning=250):
         test_labels = test_labels.reshape(test_data.shape[0], 1)    
     return train_data, train_labels, test_data, test_labels
 
+# split train and test datasets with coordinates labels
+def split_regression_dataset(dataset, infotable, split=80, reshape=True, binning=250):
+    total_size = len(dataset['DS'])
+    train_size = int((total_size / 100) * split)
+    infodata = pd.read_csv(infotable, sep=' ', header=0).sort_values(by=['seed'])
+    seeds = infodata['seed']
+    total_labels = np.array([(infodata[infodata['seed']==seed]['source_ra'].values[0], infodata[infodata['seed']==seed]['source_dec'].values[0]) for seed in seeds])
+    # train dataset
+    train_data = np.copy(dataset['DS'][:train_size])
+    train_labels = np.copy(total_labels[:train_size])
+    # test dataset
+    test_data = np.copy(dataset['DS'][train_size:])
+    test_labels = np.copy(total_labels[train_size:])
+    # reshape
+    if reshape:
+        train_data = train_data.reshape(train_data.shape[0], binning, binning, 1)
+        test_data = test_data.reshape(test_data.shape[0], binning, binning, 1)
+        train_labels = train_labels.reshape(train_data.shape[0], 1)
+        test_labels = test_labels.reshape(test_data.shape[0], 1)    
+    return train_data, train_labels, test_data, test_labels
+
 def split_noisy_dataset(dataset, split=80, reshape=True, binning=250):
     size = len(dataset['DS1'])
     # train_size = split % of half total size (sum of src and bkg samples)
@@ -231,14 +299,14 @@ def load_yaml_conf(yamlfile):
         configuration = yaml.load(f, Loader=yaml.FullLoader)
     return configuration
 
-def get_min_max_norm(vmin, vmax):
+def get_norm_value(vmin, vmax):
     if vmin == 0 and vmax == 0:
-        min_max_norm = 0
+        norm_value = 0
     elif vmin == 1 and vmax == 1:
-        min_max_norm = 1
+        norm_value = 1
     else:
-        min_max_norm = (vmin, vmax)
-    return min_max_norm
+        norm_value = (vmin, vmax)
+    return norm_value
 
 # min-max stretch but the max is mean+sigma*std and min is mean-sigma*std
 def stretch_smooth(heatmap, sigma=3):
