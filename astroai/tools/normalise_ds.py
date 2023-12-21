@@ -15,7 +15,7 @@ def main(configuration):
     conf = conf['preprocess']
     ds_path = join(conf['directory'])
     # create image dataset
-    ds = get_and_normalise_dataset(ds_path=ds_path, sample=conf['sample'], save=True, output=conf['directory'], min_max_norm=[conf['preprocess']['min_norm'], conf['preprocess']['max_norm']])
+    ds = get_and_normalise_dataset(ds_path=ds_path, sample=conf['sample'], save=True, output=conf['directory'], norm_value=[conf['preprocess']['min_norm'], conf['preprocess']['max_norm']])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
