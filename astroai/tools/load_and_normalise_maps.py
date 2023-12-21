@@ -20,7 +20,7 @@ def main(configuration):
         raise ValueError(f"Mode {conf['mode']} not valid")
     trange = [conf['time_start'], conf['time_stop']]
     # create image dataset
-    ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], min_max_norm=conf['min_max_norm'], mode=conf['mode'], suffix=conf['suffix'], dl=4)
+    ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], norm_value=conf['norm_value'], mode=conf['mode'], suffix=conf['suffix'], dl=4)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
