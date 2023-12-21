@@ -7,43 +7,54 @@
 # *****************************************************************************
 
 import argparse
-import numpy as np
 import tensorflow as tf
 from os.path import join, isfile
-from astroai.tools.utils import load_yaml_conf, split_dataset, split_noisy_dataset, tensorboard_logdir, load_dataset_npy
+from astroai.tools.utils import *
 TF_CPP_MIN_LOG_LEVEL="1"
 
 
 def create_bkg_cleaner(binning):
     input_shape = tf.keras.Input(shape=(binning, binning, 1))
     # encoder
-    x = tf.keras.layers.Conv2D(50, (5, 5), activation='relu', padding='same')(input_shape)
+    x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(input_shape)
     x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
-    x = tf.keras.layers.Conv2D(50, (5, 5), activation='relu', padding='same')(x)
-    encoded = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
+    x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
+    x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
 
-    # decoder
-    x = tf.keras.layers.Conv2D(50, (5, 5), activation='relu', padding='same')(encoded)
-    x = tf.keras.layers.UpSampling2D((5, 5))(x)
-    x = tf.keras.layers.Conv2D(50, (5, 5), activation='relu', padding='same')(x)
-    x = tf.keras.layers.UpSampling2D((5, 5))(x)
-    decoded = tf.keras.layers.Conv2D(1, (5, 5), activation='sigmoid', padding='same')(x)
+    # decoder #1
+    #x = tf.keras.layers.Conv2D(25, (3, 3), activation='relu', padding='same')(encoded)
+    #x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    #x = tf.keras.layers.Conv2D(25, (3, 3), activation='relu', padding='same')(x)
+    #x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    #x = tf.keras.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
+
+    # decoder #2
+    x = tf.keras.layers.Conv2DTranspose(5, (5, 5), strides=5, activation="relu", padding="same")(x)
+    x = tf.keras.layers.Conv2DTranspose(5, (5, 5), strides=5, activation="relu", padding="same")(x)
+    x = tf.keras.layers.Conv2D(1, (5, 5), activation="sigmoid", padding="same")(x)
 
     # autoencoder
-    autoencoder = tf.keras.Model(input_shape, decoded)
+    autoencoder = tf.keras.Model(input_shape, x)
     autoencoder.summary()
     return autoencoder
 
-def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, test_clean, logdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, logdate=True, suffix=None):
-    # tensorboard
+def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, test_clean, logdir, cpdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, savename=None):
+    # callbacks
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
+    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1, 
+                                                              save_freq=5*int(len(train_noisy) / batch_sz))
+    earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")
+
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
-                  loss=tf.keras.losses.binary_crossentropy, metrics=['accuracy'])
+                  loss=tf.keras.losses.binary_crossentropy) # metrics=['accuracy']
     # fit
     history = model.fit(train_noisy, train_clean, epochs=epochs, batch_size=batch_sz,
                         validation_data=(test_noisy, test_clean), shuffle=shuffle,
-                        callbacks=[tensorboard_callback, tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")])
+                        callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
+    
+    if savename is not None:
+        model.save(f"{savename}.keras")
     return history
 
 def create_binary_classifier(binning):
@@ -61,16 +72,23 @@ def create_binary_classifier(binning):
     model.summary()
     return model
 
-def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, logdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True):
-    # tensorboard
+def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, logdir, cpdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, savename=None):
+    # callbacks
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
+    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1,
+                                                              save_freq=5*int(len(train_ds) / batch_sz))
+    earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")
+
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
     # fit
     history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, 
                         validation_data=(test_ds, test_lb), shuffle=shuffle,
-                        callbacks=[tensorboard_callback, tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")])
+                        callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
+
+    if savename is not None:
+        model.save(f"{savename}.keras")
     return history
 
 def main(configuration, mode):
@@ -82,6 +100,7 @@ def main(configuration, mode):
         raise FileNotFoundError(filename)
 
     logdir = tensorboard_logdir(mode=mode, suffix=conf['cnn']['suffix'], logdate=True)
+    cpdir = checkpoint_dir(mode=mode, suffix=conf['cnn']['suffix'], logdate=True)
 
     # binary classification network
     if ('detect' in mode or 'class' in mode):
@@ -90,7 +109,7 @@ def main(configuration, mode):
         # create model
         model = create_binary_classifier(binning=conf['preprocess']['binning'])
         # compile and fit
-        history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'])
+        history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
 
     # background cleaner autoencoder
     elif 'clean' in mode:
@@ -99,7 +118,7 @@ def main(configuration, mode):
         # create model
         model = create_bkg_cleaner(binning=conf['preprocess']['binning'])
         # compile and fit
-        history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'])
+        history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
 
 
     else:
