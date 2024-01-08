@@ -16,6 +16,7 @@ from datetime import datetime
 from astropy.wcs import WCS
 from astropy.table import Table
 from astropy.io import fits
+from astropy.coordinates import SkyCoord
 from scipy.ndimage import gaussian_filter
 from tqdm import tqdm
 
@@ -69,8 +70,11 @@ def normalise_dataset(ds, max_value, min_value=0, save=False, save_name=None):
     return ds
 
 # plot heatmap
-def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=None):
-    plt.figure()
+def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=None, wcs=None):
+    if wcs is not None:
+        plt.subplot(projection=wcs)
+    else:
+        plt.figure()
     plt.title(title)
     plt.imshow(heatmap, vmin=0, vmax=1)
     plt.xlabel('x(det) [pixels]')
@@ -259,7 +263,14 @@ def split_regression_dataset(dataset, infotable, split=80, reshape=True, binning
     train_size = int((total_size / 100) * split)
     infodata = pd.read_csv(infotable, sep=' ', header=0).sort_values(by=['seed'])
     seeds = infodata['seed']
-    total_labels = np.array([(infodata[infodata['seed']==seed]['source_ra'].values[0], infodata[infodata['seed']==seed]['source_dec'].values[0]) for seed in seeds])
+    # get coordinates and convert from WCS to pixel
+    total_labels = []
+    for seed in seeds:
+        row = infodata[infodata['seed']==seed]
+        w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], point_ref=binning/2+0.5, pixelsize=row['fov'].values[0]/binning)
+        x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg'))
+        total_labels.append((x, y))
+    total_labels = np.array(total_labels)
     # train dataset
     train_data = np.copy(dataset['DS'][:train_size])
     train_labels = np.copy(total_labels[:train_size])
@@ -270,9 +281,7 @@ def split_regression_dataset(dataset, infotable, split=80, reshape=True, binning
     # reshape
     if reshape:
         train_data = train_data.reshape(train_data.shape[0], binning, binning, 1)
-        test_data = test_data.reshape(test_data.shape[0], binning, binning, 1)
-        train_labels = train_labels.reshape(train_data.shape[0], train_data.shape[0], 1)
-        test_labels = test_labels.reshape(test_data.shape[0], test_data.shape[0], 1)    
+        test_data = test_data.reshape(test_data.shape[0], binning, binning, 1)  
     return train_data, train_labels, test_data, test_labels
 
 def split_noisy_dataset(dataset, split=80, reshape=True, binning=250):
