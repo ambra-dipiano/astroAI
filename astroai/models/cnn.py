@@ -206,5 +206,5 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
     args = parser.parse_args()
 
-    print(f"\n\n{'!'*3} CNN {args.mode.upper()} {'!'*3}\n\n")
-    main(args.configuration, args.mode)
+    print(f"\n\n{'!'*3} START CNN TRAINING {'!'*3}\n\n")
+    main(args.configuration)
