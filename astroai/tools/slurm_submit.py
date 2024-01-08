@@ -1,5 +1,5 @@
 # *******************************************************************************
-# Copyright (C) 2023 INAF
+# Copyright (C) 2023 Ambra Di Piano
 #
 # This software is distributed under the terms of the BSD-3-Clause license
 #

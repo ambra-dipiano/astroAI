@@ -1,5 +1,5 @@
 # *****************************************************************************
-# Copyright (C) 2023 INAF
+# Copyright (C) 2023 Ambra Di Piano
 # This software is distributed under the terms of the BSD-3-Clause license
 #
 # Authors:
@@ -266,12 +266,13 @@ def split_regression_dataset(dataset, infotable, split=80, reshape=True, binning
     # test dataset
     test_data = np.copy(dataset['DS'][train_size:])
     test_labels = np.copy(total_labels[train_size:])
+    print(train_data.shape, train_labels.shape)
     # reshape
     if reshape:
         train_data = train_data.reshape(train_data.shape[0], binning, binning, 1)
         test_data = test_data.reshape(test_data.shape[0], binning, binning, 1)
-        train_labels = train_labels.reshape(train_data.shape[0], 1)
-        test_labels = test_labels.reshape(test_data.shape[0], 1)    
+        train_labels = train_labels.reshape(train_data.shape[0], train_data.shape[0], 1)
+        test_labels = test_labels.reshape(test_data.shape[0], test_data.shape[0], 1)    
     return train_data, train_labels, test_data, test_labels
 
 def split_noisy_dataset(dataset, split=80, reshape=True, binning=250):
