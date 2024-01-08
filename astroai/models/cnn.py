@@ -12,25 +12,30 @@ from os.path import join, isfile
 from astroai.tools.utils import *
 TF_CPP_MIN_LOG_LEVEL="1"
 
-def create_bkg_cleaner(binning):
+# ---- CNN BACKGROUND CLEANER -----
+
+def create_bkg_cleaner(binning, decoder=1):
     input_shape = tf.keras.Input(shape=(binning, binning, 1))
     # encoder
     x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(input_shape)
     x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
     x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
     x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
+    x = tf.keras.layers.Dropout(0.2)
 
     # decoder #1
-    #x = tf.keras.layers.Conv2D(25, (3, 3), activation='relu', padding='same')(encoded)
-    #x = tf.keras.layers.UpSampling2D((2, 2))(x)
-    #x = tf.keras.layers.Conv2D(25, (3, 3), activation='relu', padding='same')(x)
-    #x = tf.keras.layers.UpSampling2D((2, 2))(x)
-    #x = tf.keras.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
+    if decoder == 1:
+        x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
+        x = tf.keras.layers.UpSampling2D((5, 5))(x)
+        x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
+        x = tf.keras.layers.UpSampling2D((5, 5))(x)
+        x = tf.keras.layers.Conv2D(1, (5, 5), activation='sigmoid', padding='same')(x)
 
     # decoder #2
-    x = tf.keras.layers.Conv2DTranspose(5, (5, 5), strides=5, activation="relu", padding="same")(x)
-    x = tf.keras.layers.Conv2DTranspose(5, (5, 5), strides=5, activation="relu", padding="same")(x)
-    x = tf.keras.layers.Conv2D(1, (5, 5), activation="sigmoid", padding="same")(x)
+    elif decoder == 2:
+        x = tf.keras.layers.Conv2DTranspose(5, (5, 5), strides=5, activation="relu", padding="same")(x)
+        x = tf.keras.layers.Conv2DTranspose(5, (5, 5), strides=5, activation="relu", padding="same")(x)
+        x = tf.keras.layers.Conv2D(1, (5, 5), activation="sigmoid", padding="same")(x)
 
     # autoencoder
     autoencoder = tf.keras.Model(input_shape, x)
@@ -47,13 +52,17 @@ def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, tes
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.binary_crossentropy) # metrics=['accuracy']
+    if savename is not None:
+        print(f'SAVING MODEL AS {savename}.keras')
+        model.save(f"{savename}.keras")
+
     # fit
     history = model.fit(train_noisy, train_clean, epochs=epochs, batch_size=batch_sz,
                         validation_data=(test_noisy, test_clean), shuffle=shuffle,
                         callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
-    
     if savename is not None:
-        model.save(f"{savename}.keras")
+        print(f'SAVING HISTORY AS {savename}_history.npy')
+        np.save(f'{savename}_history.npy', history.history)
     return history
 
 def cnn_bkg_cleaner(ds, conf, logdir, cpdir):
@@ -62,8 +71,11 @@ def cnn_bkg_cleaner(ds, conf, logdir, cpdir):
     # create model
     model = create_bkg_cleaner(binning=conf['preprocess']['binning'])
     # compile and fit
+    print('\n\n\n', conf['cnn']['saveas'], '\n\n\n')
     history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
     return
+
+# ----- CNN BINARY CLASSIFIER -----
 
 def create_binary_classifier(binning):
     model = tf.keras.models.Sequential()
@@ -90,13 +102,17 @@ def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_l
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
+    if savename is not None:
+        print(f'SAVING MODEL AS {savename}.keras')
+        model.save(f"{savename}.keras")
+
     # fit
     history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, 
                         validation_data=(test_ds, test_lb), shuffle=shuffle,
                         callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
-
     if savename is not None:
-        model.save(f"{savename}.keras")
+        print(f'SAVING HISTORY AS {savename}_history.npy')
+        np.save(f'{savename}_history.npy', history.history)
     return history
 
 def cnn_binary_classifier(ds, conf, logdir, cpdir):
@@ -107,6 +123,8 @@ def cnn_binary_classifier(ds, conf, logdir, cpdir):
     # compile and fit
     history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
     return history
+
+# ----- CNN COORDINATES REGRESSOR -----
 
 def create_loc_regressor(binning, number_of_conv=4):
     model = tf.keras.models.Sequential()
@@ -133,17 +151,23 @@ def compile_and_fit_loc_regressor(model, train_ds, train_lb, test_ds, test_lb, l
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.mae, metrics=['accuracy'])
+    if savename is not None:
+        print(f'SAVING MODEL AS {savename}.keras')
+        model.save(f"{savename}.keras")
+
     # fit
     history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, 
                         validation_data=(test_ds, test_lb), shuffle=shuffle,
                         callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
-
     if savename is not None:
-        model.save(f"{savename}.keras")
+        print(f'SAVING HISTORY AS {savename}_history.npy')
+        np.save(f'{savename}_history.npy', history.history)
     return history
 
 def cnn_loc_regressor(ds, conf, logdir, cpdir):
     return
+
+# ----- CNN MAIN ROUTINE -----
 
 def main(configuration, mode):
     conf = load_yaml_conf(configuration)
