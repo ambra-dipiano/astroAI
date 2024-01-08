@@ -334,16 +334,16 @@ def stretch_min_max(heatmap, vmax, vmin=0):
     heatmap[heatmap<0]=0
     return heatmap
 
-def tensorboard_logdir(mode, suffix=None, logdate=True):
-    logdir = join("logs", f"cnn_{mode}")
+def tensorboard_logdir(savename, suffix=None, logdate=True):
+    logdir = join("logs", f"{savename}")
     if logdate:
         logdir += '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
     if suffix is not None:
         logdir += '_' + suffix
     return logdir
 
-def checkpoint_dir(mode, suffix=None, logdate=False):
-    logdir = join("checkpoints", f"cnn_{mode}")
+def checkpoint_dir(savename, suffix=None, logdate=False):
+    logdir = join("checkpoints", f"{savename}")
     if logdate:
         logdir += '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
     if suffix is not None:
