@@ -21,7 +21,6 @@ def create_bkg_cleaner(binning, decoder=1):
     x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
     x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
     x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
-    x = tf.keras.layers.Dropout(0.2)
 
     # decoder #1
     if decoder == 1:
@@ -165,7 +164,14 @@ def compile_and_fit_loc_regressor(model, train_ds, train_lb, test_ds, test_lb, l
     return history
 
 def cnn_loc_regressor(ds, conf, logdir, cpdir):
-    return
+    # split dataset
+    infotable = join(conf['cnn']['directory'], conf['cnn']['infotable'])
+    train_data, train_labels, test_data, test_labels = split_regression_dataset(ds, infotable, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
+    # create model
+    model = create_binary_classifier(binning=conf['preprocess']['binning'])
+    # compile and fit
+    history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
+    return history
 
 # ----- CNN MAIN ROUTINE -----
 
