@@ -73,7 +73,6 @@ def cnn_bkg_cleaner(ds, conf, logdir, cpdir):
     # compile and fit
     print('\n\n\n', conf['cnn']['saveas'], '\n\n\n')
     history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
-    return
 
 # ----- CNN BINARY CLASSIFIER -----
 
@@ -113,7 +112,6 @@ def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_l
     if savename is not None:
         print(f'SAVING HISTORY AS {savename}_history.npy')
         np.save(f'{savename}_history.npy', history.history)
-    return history
 
 def cnn_binary_classifier(ds, conf, logdir, cpdir):
     # split dataset
@@ -122,7 +120,6 @@ def cnn_binary_classifier(ds, conf, logdir, cpdir):
     model = create_binary_classifier(binning=conf['preprocess']['binning'])
     # compile and fit
     history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
-    return history
 
 # ----- CNN COORDINATES REGRESSOR -----
 
@@ -162,7 +159,6 @@ def compile_and_fit_loc_regressor(model, train_ds, train_lb, test_ds, test_lb, l
     if savename is not None:
         print(f'SAVING HISTORY AS {savename}_history.npy')
         np.save(f'{savename}_history.npy', history.history)
-    return history
 
 def cnn_loc_regressor(ds, conf, logdir, cpdir):
     # split dataset
@@ -172,7 +168,6 @@ def cnn_loc_regressor(ds, conf, logdir, cpdir):
     model = create_binary_classifier(binning=conf['preprocess']['binning'])
     # compile and fit
     history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
-    return history
 
 # ----- CNN MAIN ROUTINE -----
 
@@ -190,15 +185,15 @@ def main(configuration):
 
     # binary classification network
     if ('detect' in mode or 'class' in mode):
-        history = cnn_binary_classifier(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
+        cnn_binary_classifier(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
 
     # background cleaner autoencoder
     elif 'clean' in mode:
-        history = cnn_bkg_cleaner(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
+        cnn_bkg_cleaner(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
 
     # hotspots identification regressor
     elif 'loc' in mode:
-        history = cnn_loc_regressor(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
+        cnn_loc_regressor(ds=ds, conf=conf, logdir=logdir, cpdir=cpdir)
 
     else:
         raise ValueError('Not implemented yet')
