@@ -18,9 +18,10 @@ def create_bkg_cleaner(binning, decoder=1):
     input_shape = tf.keras.Input(shape=(binning, binning, 1))
     # encoder
     x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(input_shape)
-    x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
+    x = tf.keras.layers.AveragePooling2D((5, 5), padding='same')(x)
     x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
-    x = tf.keras.layers.MaxPooling2D((5, 5), padding='same')(x)
+    x = tf.keras.layers.AveragePooling2D((5, 5), padding='same')(x)
+    x = tf.keras.layers.SpatialDropout2D(0.2)
 
     # decoder #1
     if decoder == 1:
@@ -175,16 +176,17 @@ def cnn_loc_regressor(ds, conf, logdir, cpdir):
 
 # ----- CNN MAIN ROUTINE -----
 
-def main(configuration, mode):
+def main(configuration):
     conf = load_yaml_conf(configuration)
     filename = join(conf['cnn']['directory'], conf['cnn']['dataset'])
+    mode = savename=conf['cnn']['mode']
     if isfile(filename):
         ds = load_dataset_npy(filename)
     else:
         raise FileNotFoundError(filename)
 
-    logdir = tensorboard_logdir(mode=mode, suffix=conf['cnn']['suffix'], logdate=True)
-    cpdir = checkpoint_dir(mode=mode, suffix=conf['cnn']['suffix'], logdate=True)
+    logdir = tensorboard_logdir(savename=conf['cnn']['saveas'], suffix=conf['cnn']['suffix'], logdate=True)
+    cpdir = checkpoint_dir(savename=conf['cnn']['saveas'], suffix=conf['cnn']['suffix'], logdate=True)
 
     # binary classification network
     if ('detect' in mode or 'class' in mode):
@@ -207,7 +209,6 @@ def main(configuration, mode):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
-    parser.add_argument('-m', '--mode', type=str, required=True, choices=['classify', 'clean', 'localise'], help="scope of the CNN and thus related network")
     args = parser.parse_args()
 
     print(f"\n\n{'!'*3} CNN {args.mode.upper()} {'!'*3}\n\n")
