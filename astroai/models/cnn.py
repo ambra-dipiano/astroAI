@@ -14,14 +14,24 @@ TF_CPP_MIN_LOG_LEVEL="1"
 
 # ---- CNN BACKGROUND CLEANER -----
 
-def create_bkg_cleaner(binning, decoder=1):
+def create_bkg_cleaner(binning, encoder=1, decoder=1):
     input_shape = tf.keras.Input(shape=(binning, binning, 1))
-    # encoder
-    x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(input_shape)
-    x = tf.keras.layers.AveragePooling2D((5, 5), padding='same')(x)
-    x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
-    x = tf.keras.layers.AveragePooling2D((5, 5), padding='same')(x)
-    x = tf.keras.layers.SpatialDropout2D(0.2)
+
+    # encoder #1
+    if encoder == 1:
+        x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(input_shape)
+        x = tf.keras.layers.MaxPool2D((5, 5), padding='same')(x)
+        x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
+        x = tf.keras.layers.MaxPool2D((5, 5), padding='same')(x)
+        #x = tf.keras.layers.SpatialDropout2D(0.2)
+
+    # encoder #2
+    elif encoder == 2:
+        x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(input_shape)
+        x = tf.keras.layers.AveragePooling2D((5, 5), padding='same')(x)
+        x = tf.keras.layers.Conv2D(5, (5, 5), activation='relu', padding='same')(x)
+        x = tf.keras.layers.AveragePooling2D((5, 5), padding='same')(x)
+        #x = tf.keras.layers.SpatialDropout2D(0.2)
 
     # decoder #1
     if decoder == 1:
@@ -52,15 +62,14 @@ def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, tes
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.binary_crossentropy) # metrics=['accuracy']
-    if savename is not None:
-        print(f'SAVING MODEL AS {savename}.keras')
-        model.save(f"{savename}.keras")
-
     # fit
     history = model.fit(train_noisy, train_clean, epochs=epochs, batch_size=batch_sz,
                         validation_data=(test_noisy, test_clean), shuffle=shuffle,
                         callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
+    
     if savename is not None:
+        print(f'SAVING MODEL AS {savename}.keras')
+        model.save(f"{savename}.keras")
         print(f'SAVING HISTORY AS {savename}_history.npy')
         np.save(f'{savename}_history.npy', history.history)
     return history
@@ -101,15 +110,14 @@ def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_l
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
-    if savename is not None:
-        print(f'SAVING MODEL AS {savename}.keras')
-        model.save(f"{savename}.keras")
-
     # fit
     history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, 
                         validation_data=(test_ds, test_lb), shuffle=shuffle,
                         callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
+    
     if savename is not None:
+        print(f'SAVING MODEL AS {savename}.keras')
+        model.save(f"{savename}.keras")
         print(f'SAVING HISTORY AS {savename}_history.npy')
         np.save(f'{savename}_history.npy', history.history)
 
@@ -148,15 +156,14 @@ def compile_and_fit_loc_regressor(model, train_ds, train_lb, test_ds, test_lb, l
     # compile
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning),  
                   loss=tf.keras.losses.mae, metrics=['accuracy'])
-    if savename is not None:
-        print(f'SAVING MODEL AS {savename}.keras')
-        model.save(f"{savename}.keras")
-
     # fit
     history = model.fit(train_ds, train_lb, batch_size=batch_sz, epochs=epochs, 
                         validation_data=(test_ds, test_lb), shuffle=shuffle,
                         callbacks=[tensorboard_callback, checkpoints_callback, earlystop_callback])
+    
     if savename is not None:
+        print(f'SAVING MODEL AS {savename}.keras')
+        model.save(f"{savename}.keras")
         print(f'SAVING HISTORY AS {savename}_history.npy')
         np.save(f'{savename}_history.npy', history.history)
 
