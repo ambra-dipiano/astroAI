@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from os import listdir
-from os.path import join, isfile
+from os.path import join, isfile, basename
 from datetime import datetime
 from astropy.wcs import WCS
 from astropy.table import Table
@@ -150,15 +150,19 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binni
     return datasets
 
 # gather simulations and create heatmaps for regressor
-def process_regressor_dataset(ds_dataset_path, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, suffix=None, dl=3):
+def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, suffix=None, dl=3):
     datapath = {'DS': ds_dataset_path}
 
     # datasets files
     datafiles = {'DS': []}
     datafiles['DS'] = sorted([join(datapath['DS'], f) for f in listdir(datapath['DS']) if '.fits' in f and isfile(join(datapath['DS'], f))])
+
+    # get info data
+    infodata = pd.read_csv(infotable, sep=' ', header=0).sort_values(by=['seed'])
+    seeds = infodata['seed']
         
     # create images dataset 
-    datasets = {'DS': []}
+    datasets = {'DS': [], 'LABELS': []}
     print(f"Load DS data...")
     for f in tqdm(datafiles['DS'][:sample]):
         # load
@@ -181,13 +185,24 @@ def process_regressor_dataset(ds_dataset_path, smoothing, binning, sample, save=
                 heatmap = stretch_min_max(heatmap, vmax=norm_value)
             else:
                 heatmap = normalise_dataset(heatmap, max_value=norm_value)
+
         # add to dataset
         if heatmap.shape != (binning, binning):
             heatmap.reshape(binning, binning)
+
+        # get source coordinates
+        seed = int(''.join(filter(str.isdigit, basename(f))))
+        row = infodata[infodata['seed']==seed]
+        w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], point_ref=binning/2+0.5, pixelsize=row['fov'].values[0]/binning)
+        x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg'))
+
+        # append to ds
         datasets['DS'].append(heatmap)
+        datasets['LABELS'].append((x,y))
 
     # convert to numpy array
     datasets['DS'] = np.array(datasets['DS'])
+    datasets['LABELS'] = np.array(datasets['LABELS'])
     
     # save processed dataset
     if save and output is not None:
