@@ -278,20 +278,12 @@ def split_regression_dataset(dataset, infotable, split=80, reshape=True, binning
     train_size = int((total_size / 100) * split)
     infodata = pd.read_csv(infotable, sep=' ', header=0).sort_values(by=['seed'])
     seeds = infodata['seed']
-    # get coordinates and convert from WCS to pixel
-    total_labels = []
-    for seed in seeds:
-        row = infodata[infodata['seed']==seed]
-        w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], point_ref=binning/2+0.5, pixelsize=row['fov'].values[0]/binning)
-        x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg'))
-        total_labels.append((x, y))
-    total_labels = np.array(total_labels)
     # train dataset
     train_data = np.copy(dataset['DS'][:train_size])
-    train_labels = np.copy(total_labels[:train_size])
+    train_labels = np.copy(dataset['LABELS'][:train_size])
     # test dataset
     test_data = np.copy(dataset['DS'][train_size:])
-    test_labels = np.copy(total_labels[train_size:])
+    test_labels = np.copy(dataset['LABELS'][train_size:])
     print(train_data.shape, train_labels.shape)
     # reshape
     if reshape:
