@@ -150,7 +150,7 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binni
     return datasets
 
 # gather simulations and create heatmaps for regressor
-def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, suffix=None, dl=3):
+def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, suffix=None, dl=3, exposure=None):
     datapath = {'DS': ds_dataset_path}
 
     # datasets files
@@ -169,7 +169,12 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
         if dl == 3:
             heatmap = Table.read(f, hdu=1).to_pandas()
             # integrate exposure
-            heatmap = extract_heatmap(heatmap, smoothing, binning)
+            if exposure is not None:
+                if exposure == 'random':
+                    exposure = np.random.randint(10, 300)
+                heatmap = extract_heatmap(heatmap, smoothing, binning, filter=True, exposure=exposure)
+            else:
+                heatmap = extract_heatmap(heatmap, smoothing, binning)
         elif dl == 4:
             with fits.open(f) as h:
                 heatmap = smooth_heatmap(h[0].data, smoothing)
