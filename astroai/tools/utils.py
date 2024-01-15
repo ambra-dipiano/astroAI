@@ -33,11 +33,13 @@ def set_wcs(point_ra, point_dec, point_ref, pixelsize):
     return w
 
 # extract heatmap from DL3 with configurable exposure
-def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=True, trange=None):
+def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=True, trange=None, wcs=None):
     if filter and trange is not None:
         data = data[(data['TIME'] >= trange[0]) & (data['TIME'] <= trange[1])] 
     ra = data['RA'].to_numpy()
     dec = data['DEC'].to_numpy()
+    if wcs is not None:
+        ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg'))
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
     if smoothing != 0:
         heatmap = gaussian_filter(heatmap, sigma=smoothing)
@@ -172,7 +174,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
             if exposure is not None:
                 if exposure == 'random':
                     exposure = np.random.randint(10, 300)
-                heatmap = extract_heatmap(heatmap, smoothing, binning, filter=True, exposure=exposure)
+                heatmap = extract_heatmap(heatmap, smoothing, binning, filter=True, trange=(0, exposure))
             else:
                 heatmap = extract_heatmap(heatmap, smoothing, binning)
         elif dl == 4:
@@ -198,7 +200,8 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
         # get source coordinates
         seed = int(''.join(filter(str.isdigit, basename(f))))
         row = infodata[infodata['seed']==seed]
-        w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], point_ref=binning/2+0.5, pixelsize=row['fov'].values[0]/binning)
+        w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], 
+                    point_ref=binning/2+0.5, pixelsize=row['fov'].values[0]/binning)
         x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg'))
 
         # append to ds
