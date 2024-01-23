@@ -9,6 +9,7 @@
 import yaml
 import numpy as np
 import pandas as pd
+import astropy.units as u
 import matplotlib.pyplot as plt
 from os import listdir
 from os.path import join, isfile, basename
@@ -28,8 +29,8 @@ def set_wcs(point_ra, point_dec, point_ref, pixelsize):
     w.wcs.crpix = [point_ref, point_ref]
     w.wcs.crval = [point_ra, point_dec]
     w.wcs.cdelt = [-pixelsize, pixelsize]
-    #w.wcs.lonpole = 0.0
-    #w.wcs.latpole = 67.49
+    w.wcs.latpole = 30.078643218
+    w.wcs.lonpole = 0.0
     return w
 
 # extract heatmap from DL3 with configurable exposure
@@ -45,7 +46,7 @@ def extract_heatmap_from_table(data, smoothing, nbins, save=False, save_name=Non
         heatmap = gaussian_filter(heatmap, sigma=smoothing)
     if save and save_name is not None:
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
-    return heatmap.T
+    return heatmap.T, xe, ye
 
 # extract heatmap from DL3 with configurable exposure
 def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=True, trange=None, wcs=None):
@@ -62,7 +63,7 @@ def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=T
         heatmap = gaussian_filter(heatmap, sigma=smoothing)
     if save and save_name is not None:
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
-    return heatmap.T
+    return heatmap.T, xe, ye
 
 # smooth heatmap from DL4 
 def smooth_heatmap(heatmap, smoothing, save=False, save_name=None):
@@ -107,20 +108,30 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     return
 
 # plot heatmap
-def plot_heatmap_wcs(heatmap, transform, title='heatmap', xlabel='x', ylabel='y', show=False, save=False, 
-                     save_name=None, wcs=None, src=None, yflip=False):
+def plot_heatmap_wcs(heatmap, title='heatmap', xlabel='x', ylabel='y', show=False, save=False, 
+                     save_name=None, wcs=None, src=None, pnt=None):
     if wcs is not None:
-        ax = plt.subplot(projection=wcs)
+        ax = plt.subplot(projection=wcs, aspect='equal')
         ax.coords[0].set_format_unit(u.deg)
         ax.coords[1].set_format_unit(u.deg)
-        ax.invert_xaxis()
-        ax.scatter(src.ra.deg, src.dec.deg, marker='o', s=50, facecolor='none', edgecolor='k', 
-                   transform=ax.get_transform(transform))
+        img = ax.imshow(heatmap, vmin=0, vmax=1, origin='lower') # extent=[xe[0], xe[-1], ye[0], ye[-1]]
+        #ax.invert_xaxis()
     else:
-        ax = plt.subplot()
-    if yflip:
-        heatmap = np.flipud(heatmap)
-    img = ax.imshow(heatmap, vmin=0, vmax=1, origin='lower')
+        ax = plt.subplot(aspect='equal')
+        img = ax.imshow(heatmap, vmin=0, vmax=1, origin='lower')
+        ax.invert_yaxis()
+    if pnt is not None:
+        try:
+            ra, dec = pnt.ra.deg, pnt.dec.deg
+        except:
+            ra, dec = pnt[0], pnt[1]
+        ax.scatter(np.array(ra), np.array(dec), marker='+', s=50, facecolor='none', edgecolor='r', transform=ax.get_transform(wcs))
+    if src is not None:
+        try:
+            ra, dec = src.ra.deg, src.dec.deg
+        except:
+            ra, dec = src[0], src[1]
+        ax.scatter(np.array(ra), np.array(dec), marker='o', s=50, facecolor='none', edgecolor='r', transform=ax.get_transform(wcs))
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -226,7 +237,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
             # integrate exposure
             if exposure is not None:
                 if exposure == 'random':
-                    exposure = np.random.randint(10, 300)
+                    exposure = np.random.randint(10, row['duration'].values[0])
                 heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, filter=True, trange=(0, exposure), wcs=w)
             else:
                 heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, wcs=w)
