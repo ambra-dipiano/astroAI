@@ -39,7 +39,7 @@ def extract_heatmap_from_table(data, smoothing, nbins, save=False, save_name=Non
     ra, dec = data['RA'].to_numpy(), data['DEC'].to_numpy()
     
     if wcs is not None:
-        ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg'))
+        ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg', frame='icrs'))
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
     if smoothing != 0:
         heatmap = gaussian_filter(heatmap, sigma=smoothing)
@@ -56,7 +56,7 @@ def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=T
     ra, dec = data.field('RA'), data.field('DEC')
     
     if wcs is not None:
-        ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg'))
+        ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg', frame='icrs'))
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
     if smoothing != 0:
         heatmap = gaussian_filter(heatmap, sigma=smoothing)
@@ -99,6 +99,32 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     plt.xlabel('x(det) [pixels]')
     plt.ylabel('y(det) [pixels]')
     plt.colorbar()
+    if save and save_name is not None:
+        plt.savefig(save_name)
+    if show:
+        plt.show()
+    plt.close()
+    return
+
+# plot heatmap
+def plot_heatmap_wcs(heatmap, transform, title='heatmap', xlabel='x', ylabel='y', show=False, save=False, 
+                     save_name=None, wcs=None, src=None, yflip=False):
+    if wcs is not None:
+        ax = plt.subplot(projection=wcs)
+        ax.coords[0].set_format_unit(u.deg)
+        ax.coords[1].set_format_unit(u.deg)
+        ax.invert_xaxis()
+        ax.scatter(src.ra.deg, src.dec.deg, marker='o', s=50, facecolor='none', edgecolor='k', 
+                   transform=ax.get_transform(transform))
+    else:
+        ax = plt.subplot()
+    if yflip:
+        heatmap = np.flipud(heatmap)
+    img = ax.imshow(heatmap, vmin=0, vmax=1, origin='lower')
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    plt.colorbar(img)
     if save and save_name is not None:
         plt.savefig(save_name)
     if show:
@@ -180,15 +206,19 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
     infodata = pd.read_csv(infotable, sep=' ', header=0).sort_values(by=['seed'])
         
     # create images dataset 
-    datasets = {'DS': [], 'LABELS': [], 'SEED': []}
+    datasets = {'DS': [], 'LABELS': [], 'SEED': [], 'SOURCE': [], 'FILE': [], 'EXPOSURE': []}
     print(f"Load DS data...")
     for f in tqdm(datafiles['DS'][:sample]):
         # get source coordinates
         seed = int(''.join(filter(str.isdigit, basename(f))))
         row = infodata[infodata['seed']==seed]
+        # verify seed and file are correct 
+        assert seed == row['seed'].values[0]
+        assert row['name'].values[0] in f
+        # set wcs
         w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], 
                     point_ref=binning/2+0.5, pixelsize=row['fov'].values[0]/binning)
-        x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg'))
+        x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg', frame='icrs'))
 
         # load
         if dl == 3:
@@ -210,11 +240,13 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
                 heatmap = stretch_smooth(heatmap, smoothing)
             else:
                 heatmap = normalise_heatmap(heatmap)
-        else:
+        elif norm_value is not None:
             if stretch:
                 heatmap = stretch_min_max(heatmap, vmax=norm_value)
             else:
                 heatmap = normalise_dataset(heatmap, max_value=norm_value)
+        else:
+            heatmap = heatmap
 
         # add to dataset
         if heatmap.shape != (binning, binning):
@@ -223,7 +255,10 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
         # append to ds
         datasets['DS'].append(heatmap)
         datasets['LABELS'].append((x,y))
+        datasets['SOURCE'].append((row['source_ra'].values[0], row['source_dec'].values[0]))
         datasets['SEED'].append(seed)
+        datasets['EXPOSURE'].append(exposure)
+        datasets['FILE'].append(f)
 
     # convert to numpy array
     datasets['DS'] = np.array(datasets['DS'])
@@ -298,7 +333,7 @@ def split_dataset(dataset, split=80, reshape=True, binning=250):
     return train_data, train_labels, test_data, test_labels
 
 # split train and test datasets with coordinates labels
-def split_regression_dataset(dataset, infotable, split=80, reshape=True, binning=250):
+def split_regression_dataset(dataset, split=80, reshape=True, binning=250):
     total_size = len(dataset['DS'])
     train_size = int((total_size / 100) * split)
     # train dataset
