@@ -144,9 +144,8 @@ def plot_heatmap_wcs(heatmap, title='heatmap', xlabel='x', ylabel='y', show=Fals
     return
 
 # gather simulations and create heatmaps 
-def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothing, binning, sample, save=False, output=None, norm_value=1, mode='ds', dl=3):
+def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothing, binning, sample, save=False, output=None, norm_value=1, stretch=False):
     datapath = {'DS1': ds1_dataset_path, 'DS2': ds2_dataset_path}
-    exposure = trange[1]-trange[0]
 
     # datasets files
     datafiles = {'DS1': [], 'DS2': []}
@@ -162,31 +161,25 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
         print(f"Load {k} data...")
         for f in tqdm(datafiles[k][:sample]):
             # load
-            if dl == 3:
+            try:
                 heatmap = Table.read(f, hdu=1).to_pandas()
                 # integrate exposure
                 heatmap = extract_heatmap_from_table(heatmap, trange, smoothing, binning)
-            elif dl == 4:
+            except:
                 with fits.open(f) as h:
                     heatmap = smooth_heatmap(h[0].data, smoothing)
 
             # normalise map
-            if norm_value == 1:
-                if 'detect' in mode:
-                    heatmap = stretch_smooth(heatmap, smoothing)
-                elif 'clean' in mode:
-                    heatmap = normalise_heatmap(heatmap)
-                else:
-                    pass
-            elif norm_value == 0:
-                continue
+            if norm_value == 1 and stretch:
+                heatmap = stretch_smooth(heatmap, smoothing)
+            elif norm_value == 1 and not stretch:
+                heatmap = normalise_heatmap(heatmap)
+            elif type(norm_value) == float and stretch:
+                heatmap = stretch_min_max(heatmap, vmax=norm_value)
+            elif type(norm_value) == float and not stretch:
+                heatmap = normalise_dataset(heatmap, max_value=norm_value)
             else:
-                if 'detect' in mode:
-                    heatmap = stretch_min_max(heatmap, vmax=norm_value)
-                elif 'clean' in mode:
-                    heatmap = normalise_dataset(heatmap, max_value=norm_value)
-                else: 
-                    pass
+                pass
             # add to dataset
             if heatmap.shape != (binning, binning):
                 heatmap.reshape(binning, binning)
@@ -204,7 +197,7 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
     return datasets
 
 # gather simulations and create heatmaps for regressor
-def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, dl=3, exposure=None):
+def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, binning, sample, save=False, output=None, stretch=True, norm_value=1, exposure=None):
     datapath = {'DS': ds_dataset_path}
 
     # datasets files
@@ -230,7 +223,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
         x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg', frame='icrs'))
 
         # load
-        if dl == 3:
+        try:
             heatmap = Table.read(f, hdu=1).to_pandas()
             # integrate exposure
             if exposure is not None:
@@ -239,23 +232,22 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
                 heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, filter=True, trange=(0, exposure), wcs=w)
             else:
                 heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, wcs=w)
-        elif dl == 4:
+        except:
             with fits.open(f) as h:
                 heatmap = smooth_heatmap(h[0].data, smoothing)
 
         # normalise map
-        if norm_single_map:
-            if stretch:
-                heatmap = stretch_smooth(heatmap, smoothing)
-            else:
-                heatmap = normalise_heatmap(heatmap)
-        elif norm_value is not None:
-            if stretch:
-                heatmap = stretch_min_max(heatmap, vmax=norm_value)
-            else:
-                heatmap = normalise_dataset(heatmap, max_value=norm_value)
+        # normalise map
+        if norm_value == 1 and stretch:
+            heatmap = stretch_smooth(heatmap, smoothing)
+        elif norm_value == 1 and not stretch:
+            heatmap = normalise_heatmap(heatmap)
+        elif type(norm_value) == float and stretch:
+            heatmap = stretch_min_max(heatmap, vmax=norm_value)
+        elif type(norm_value) == float and not stretch:
+            heatmap = normalise_dataset(heatmap, max_value=norm_value)
         else:
-            heatmap = heatmap
+            pass
 
         # add to dataset
         if heatmap.shape != (binning, binning):
