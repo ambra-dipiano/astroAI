@@ -155,6 +155,7 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
         
     # create images dataset 
     datasets = {'DS1': [], 'DS2': []}
+    normalisation = {'DS1': [], 'DS2': []}
     classes = datasets.keys()
     for k in classes:
         print(f"Load {k} data...")
@@ -171,12 +172,16 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
             # normalise map
             if norm_value == 1 and stretch:
                 heatmap = stretch_smooth(heatmap, smoothing)
+                normalisation[k].append((np.mean(heatmap)-(smoothing*np.std(heatmap)), np.mean(heatmap)+(smoothing*np.std(heatmap))))
             elif norm_value == 1 and not stretch:
                 heatmap = normalise_heatmap(heatmap)
+                normalisation[k].append(np.array(np.min(heatmap), np.max(heatmap)))
             elif type(norm_value) == float and stretch:
                 heatmap = stretch_min_max(heatmap, vmax=norm_value)
+                normalisation[k].append(0, np.array(np.max(heatmap), norm_value))
             elif type(norm_value) == float and not stretch:
                 heatmap = normalise_dataset(heatmap, max_value=norm_value)
+                normalisation[k].append(0, norm_value)
             else:
                 pass
 
@@ -188,6 +193,9 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
     # convert to numpy array
     datasets['DS2'] = np.array(datasets['DS2'])
     datasets['DS1'] = np.array(datasets['DS1'])
+    normalisation['DS1'] = np.array(normalisation['DS1'])
+    normalisation['DS2'] = np.array(normalisation['DS2'])
+    datasets['normalisation'] = normalisation
     
     # save processed dataset
     if save and output is not None:
