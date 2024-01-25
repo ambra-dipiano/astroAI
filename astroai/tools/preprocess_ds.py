@@ -18,14 +18,14 @@ def main(configuration):
     if 'detect' in conf['mode'] or 'class' in conf['mode']:
         ds1_dataset_path = join(conf['directory'], 'crab', 'sim')
         ds2_dataset_path = join(conf['directory'], 'background', 'sim')
-        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], norm_value=conf['norm_value'], mode=conf['mode'], suffix=conf['suffix'])
+        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], norm_value=conf['norm_value'], mode=conf['mode'], saveas=conf['saveas'])
     elif 'clean' in conf['mode']:
         ds1_dataset_path = join(conf['directory'], 'noisy')
         ds2_dataset_path = join(conf['directory'], 'clean')
-        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], norm_value=conf['norm_value'], mode=conf['mode'], suffix=conf['suffix'])
+        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], norm_value=conf['norm_value'], mode=conf['mode'], saveas=conf['saveas'])
     elif 'loc' in conf['mode'] or 'regress' in conf['mode']:
         ds_dataset_path = join(conf['directory'])
-        ds = process_regressor_dataset(ds_dataset_path, infotable=join(conf['directory'], conf['infotable']), smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=dirname(conf['directory']), norm_single_map=conf['norm_single_map'], stretch=conf['stretch'], norm_value=conf['norm_value'], suffix=conf['suffix'], exposure=conf['time_stop'])
+        ds = process_regressor_dataset(ds_dataset_path, infotable=join(conf['directory'], conf['infotable']), smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=dirname(conf['directory']), norm_single_map=conf['norm_single_map'], stretch=conf['stretch'], norm_value=conf['norm_value'], saveas=conf['saveas'], exposure=conf['time_stop'])
     else:
         raise ValueError(f"Mode {conf['mode']} not valid")
 

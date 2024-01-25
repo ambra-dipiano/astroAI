@@ -144,7 +144,7 @@ def plot_heatmap_wcs(heatmap, title='heatmap', xlabel='x', ylabel='y', show=Fals
     return
 
 # gather simulations and create heatmaps 
-def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binning, sample, save=False, output=None, norm_value=1, mode='ds', suffix=None, dl=3):
+def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothing, binning, sample, save=False, output=None, norm_value=1, mode='ds', dl=3):
     datapath = {'DS1': ds1_dataset_path, 'DS2': ds2_dataset_path}
     exposure = trange[1]-trange[0]
 
@@ -198,15 +198,13 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, trange, smoothing, binni
     
     # save processed dataset
     if save and output is not None:
-        filename = join(output, f'{mode}_{exposure}s_{smoothing}sgm_{sample}sz.npy')
-        if suffix is not None:
-            filename = filename.replace('.npy', f'_{suffix}.npy')
+        filename = join(output, f'{saveas}.npy')
         np.save(filename, datasets, allow_pickle=True, fix_imports=True)
         print(f"Process complete: {filename}")
     return datasets
 
 # gather simulations and create heatmaps for regressor
-def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, suffix=None, dl=3, exposure=None):
+def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, binning, sample, save=False, output=None, norm_single_map=False, stretch=True, norm_value=1, dl=3, exposure=None):
     datapath = {'DS': ds_dataset_path}
 
     # datasets files
@@ -277,9 +275,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, smoothing, binning, sa
     
     # save processed dataset
     if save and output is not None:
-        filename = join(output, f'regression_{smoothing}sgm_{sample}sz.npy')
-        if suffix is not None:
-            filename = filename.replace('.npy', f'_{suffix}.npy')
+        filename = join(output, f'{saveas}.npy')
         np.save(filename, datasets, allow_pickle=True, fix_imports=True)
         print(f"Process complete: {filename}")
     return datasets
@@ -422,20 +418,16 @@ def stretch_min_max(heatmap, vmax, vmin=0):
     heatmap[heatmap<0]=0
     return heatmap
 
-def tensorboard_logdir(savename, suffix=None, logdate=True):
+def tensorboard_logdir(savename, logdate=True):
     logdir = join("logs", f"{savename}")
     if logdate:
         logdir += '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
-    if suffix is not None:
-        logdir += '_' + suffix
     return logdir
 
-def checkpoint_dir(savename, suffix=None, logdate=False):
+def checkpoint_dir(savename, logdate=False):
     logdir = join("checkpoints", f"{savename}")
     if logdate:
         logdir += '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
-    if suffix is not None:
-        logdir += '_' + suffix
     return logdir
 
 def load_dataset_npy(path):
