@@ -8,13 +8,14 @@
 # *******************************************************************************
 
 import argparse
-from os import system
+from os import system, makedirs
 from os.path import abspath, join, expandvars, dirname
 from datetime import datetime
 
 def main(architecture, filename, mode):
     job_name = f'{architecture}_{mode}_{datetime.now().strftime("%Y%m%dT%H%M%S")}'
     # write bash
+    makedirs(join(dirname(abspath(__file__)), 'slurms'), exist_ok=True)
     sh_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.sh')
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--architecture', type=str, required=True, choices=['cnn'], help='Architecture of the model')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
-    parser.add_argument('-m', '--mode', type=str, required=False, choices=['clean', 'classify', 'detect'], help='Scope of the model')
+    parser.add_argument('-m', '--mode', type=str, required=False, choices=['clean', 'classify', 'detect', 'loc', 'regression'], help='Scope of the model')
     args = parser.parse_args()
 
     main(args.architecture, args.filename, args.mode)
