@@ -43,7 +43,7 @@ def extract_heatmap_from_table(data, smoothing, nbins, save=False, save_name=Non
         ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg', frame='icrs'))
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
     if smoothing != 0:
-        heatmap = gaussian_filter(heatmap, sigma=smoothing)
+        heatmap = smooth_heatmap(heatmap, sigma=smoothing)
     if save and save_name is not None:
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
     return heatmap.T, xe, ye
@@ -60,18 +60,17 @@ def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=T
         ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg', frame='icrs'))
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
     if smoothing != 0:
-        heatmap = gaussian_filter(heatmap, sigma=smoothing)
+        heatmap = smooth_heatmap(heatmap, sigma=smoothing)
     if save and save_name is not None:
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
     return heatmap.T, xe, ye
 
 # smooth heatmap from DL4 
 def smooth_heatmap(heatmap, smoothing, save=False, save_name=None):
-    if smoothing != 0:
-        heatmap = gaussian_filter(heatmap, sigma=smoothing)
+    heatmap = gaussian_filter(heatmap, sigma=smoothing)
     if save and save_name is not None:
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
-    return heatmap.T
+    return heatmap
 
 # normalise single heatmap between 0 and 1
 def normalise_heatmap(heatmap, save=False, save_name=None):
@@ -162,12 +161,12 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
         for f in tqdm(datafiles[k][:sample]):
             # load
             try:
+                with fits.open(f) as h:
+                    heatmap = smooth_heatmap(h[0].data, smoothing)
+            except:
                 heatmap = Table.read(f, hdu=1).to_pandas()
                 # integrate exposure
                 heatmap = extract_heatmap_from_table(heatmap, trange, smoothing, binning)
-            except:
-                with fits.open(f) as h:
-                    heatmap = smooth_heatmap(h[0].data, smoothing)
 
             # normalise map
             if norm_value == 1 and stretch:
@@ -180,6 +179,7 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
                 heatmap = normalise_dataset(heatmap, max_value=norm_value)
             else:
                 pass
+
             # add to dataset
             if heatmap.shape != (binning, binning):
                 heatmap.reshape(binning, binning)
@@ -191,7 +191,7 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
     
     # save processed dataset
     if save and output is not None:
-        filename = join(output, f'{saveas}.npy')
+        filename = join(output, saveas)
         np.save(filename, datasets, allow_pickle=True, fix_imports=True)
         print(f"Process complete: {filename}")
     return datasets
@@ -267,7 +267,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
     
     # save processed dataset
     if save and output is not None:
-        filename = join(output, f'{saveas}.npy')
+        filename = join(output, saveas)
         np.save(filename, datasets, allow_pickle=True, fix_imports=True)
         print(f"Process complete: {filename}")
     return datasets
