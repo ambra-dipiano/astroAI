@@ -26,7 +26,7 @@ def set_wcs(point_ra, point_dec, point_ref, pixelsize):
     w = WCS(naxis=2)
     w.wcs.ctype = ['RA---CAR', 'DEC--CAR']
     w.wcs.cunit = ['deg', 'deg']
-    w.wcs.crpix = [point_ref, point_ref]
+    w.wcs.crpix = [point_ref+pixelsize/2, point_ref+pixelsize/2]
     w.wcs.crval = [point_ra, point_dec]
     w.wcs.cdelt = [-pixelsize, pixelsize]
     w.wcs.latpole = 30.078643218
@@ -43,10 +43,10 @@ def extract_heatmap_from_table(data, smoothing, nbins, save=False, save_name=Non
         ra, dec = wcs.world_to_pixel(SkyCoord(ra, dec, unit='deg', frame='icrs'))
     heatmap, xe, ye = np.histogram2d(ra, dec, bins=nbins)
     if smoothing != 0:
-        heatmap = smooth_heatmap(heatmap, sigma=smoothing)
+        heatmap = smooth_heatmap(heatmap, smoothing=smoothing)
     if save and save_name is not None:
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
-    return heatmap.T, xe, ye
+    return heatmap.T
 
 # extract heatmap from DL3 with configurable exposure
 def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=True, trange=None, wcs=None):
@@ -63,7 +63,7 @@ def extract_heatmap(data, smoothing, nbins, save=False, save_name=None, filter=T
         heatmap = smooth_heatmap(heatmap, sigma=smoothing)
     if save and save_name is not None:
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
-    return heatmap.T, xe, ye
+    return heatmap.T
 
 # smooth heatmap from DL4 
 def smooth_heatmap(heatmap, smoothing, save=False, save_name=None):
@@ -81,6 +81,13 @@ def normalise_heatmap(heatmap, save=False, save_name=None):
         np.save(save_name, heatmap, allow_pickle=True, fix_imports=True)
     return heatmap
 
+# revert normalise single heatmap between 0 and 1
+def revert_normalise_heatmap(normed_heatmap, heatmap):
+    min_value = np.min(heatmap)
+    max_value = np.max(heatmap)
+    revert_heatmap = normed_heatmap * (max_value - min_value) + min_value
+    return revert_heatmap
+
 # normalise all heatmaps dataset between 0 and 1 with fixed normalisation
 def normalise_dataset(ds, max_value, min_value=0, save=False, save_name=None):
     ds = (ds - min_value) / (max_value - min_value)
@@ -89,13 +96,16 @@ def normalise_dataset(ds, max_value, min_value=0, save=False, save_name=None):
     return ds
 
 # plot heatmap
-def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=None, wcs=None):
+def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=None, wcs=None, vnorm=True):
     if wcs is not None:
         plt.subplot(projection=wcs)
     else:
         plt.figure()
     plt.title(title)
-    plt.imshow(heatmap, vmin=0, vmax=1)
+    if vnorm:
+        plt.imshow(heatmap, vmin=0, vmax=1)
+    else:
+        plt.imshow(heatmap)
     plt.xlabel('x(det) [pixels]')
     plt.ylabel('y(det) [pixels]')
     plt.colorbar()
@@ -163,11 +173,11 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
             # load
             try:
                 with fits.open(f) as h:
-                    heatmap = smooth_heatmap(h[0].data, smoothing)
+                    heatmap = extract_heatmap(h[0].data, trange=trange, smoothing=smoothing, nbins=binning, filter=True)
             except:
                 heatmap = Table.read(f, hdu=1).to_pandas()
                 # integrate exposure
-                heatmap = extract_heatmap_from_table(heatmap, trange, smoothing, binning)
+                heatmap = extract_heatmap_from_table(heatmap, trange=trange, smoothing=smoothing, nbins=binning, filter=True)
 
             # normalise map
             if norm_value == 1 and stretch:
@@ -227,7 +237,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
         assert row['name'].values[0] in f
         # set wcs
         w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], 
-                    point_ref=binning/2+0.5, pixelsize=row['fov'].values[0]/binning)
+                    point_ref=binning/2, pixelsize=(2*row['fov'].values[0])/binning)
         x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg', frame='icrs'))
 
         # load
@@ -406,6 +416,16 @@ def stretch_smooth(heatmap, sigma=3):
     # so we clip the values less than 0 
     heatmap[heatmap<0]=0
     return heatmap
+
+# revert stretch smooth
+def revert_stretch_smooth(heatmap, normed_heatmap, sigma=3):
+    heatmap = heatmap * np.max(heatmap)
+    std = np.std(heatmap)
+    mean = np.mean(heatmap)
+    vmax = mean+(sigma*std)
+    vmin = mean-(sigma*std)
+    revert_heatmap = normed_heatmap * (vmax-vmin) / (heatmap-vmin)
+    return revert_heatmap
 
 # min-max stretch but the max is mean+sigma*std and min is mean-sigma*std
 def stretch_min_max(heatmap, vmax, vmin=0):
