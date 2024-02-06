@@ -1,3 +1,4 @@
+# PREPROCESS CONFIGURATION
 preprocess:
   directory:            # path to data directory
   infotable:            # name of infotable in data directory
@@ -11,6 +12,7 @@ preprocess:
   stretch:              # add stretch to normalisation; 
   saveas:               # name of dataset to save
 
+# CNN CONFIGURATION
 cnn:                    
   directory:            # path to dataset directory
   dataset:              # dataset name
