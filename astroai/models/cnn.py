@@ -54,7 +54,7 @@ def create_bkg_cleaner(binning, encoder=2, decoder=1, conv_filter=2, conv_kern=2
     return autoencoder
 
 # SOURCE LOCALISATION MODEL
-def create_loc_regressor(binning, number_of_conv=4, conv_filter=2, conv_kern=4, pool_kern=2, dropout=0.4, dense=10000):
+def create_loc_regressor(binning, number_of_conv=4, conv_filter=2, conv_kern=2, pool_kern=2, dropout=0.2, dense=10):
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Conv2D(conv_filter, kernel_size=(conv_kern*2, conv_kern*2), activation='relu', input_shape=(binning,binning,1)))
     model.add(tf.keras.layers.MaxPooling2D(pool_size=(pool_kern, pool_kern)))
