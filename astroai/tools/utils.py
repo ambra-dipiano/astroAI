@@ -29,8 +29,8 @@ def set_wcs(point_ra, point_dec, point_ref, pixelsize):
     w.wcs.crpix = [point_ref+pixelsize/2, point_ref+pixelsize/2]
     w.wcs.crval = [point_ra, point_dec]
     w.wcs.cdelt = [-pixelsize, pixelsize]
-    w.wcs.latpole = 30.078643218
-    w.wcs.lonpole = 0.0
+    #w.wcs.latpole = 30.078643218
+    #w.wcs.lonpole = 0.0
     return w
 
 # extract heatmap from DL3 with configurable exposure
@@ -227,6 +227,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
         
     # create images dataset 
     datasets = {'DS': [], 'LABELS': [], 'SEED': [], 'SOURCE': [], 'FILE': [], 'EXPOSURE': []}
+    invalid = 0
     print(f"Load DS data...")
     for f in tqdm(datafiles['DS'][:sample]):
         # get source coordinates
@@ -238,7 +239,12 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
         # set wcs
         w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], 
                     point_ref=binning/2, pixelsize=(2*row['fov'].values[0])/binning)
-        x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg', frame='icrs'))
+        try:
+            x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg', frame='icrs'))
+        except Exception as e:
+            print(f"Skip seed {seed} due to invalid transformation. \n{e}")
+            invalid += 1
+            continue
 
         # load
         try:
@@ -282,6 +288,9 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
     # convert to numpy array
     datasets['DS'] = np.array(datasets['DS'])
     datasets['LABELS'] = np.array(datasets['LABELS'])
+    datasets['SEED'] = np.array(datasets['SEED'])
+    print(f"Total invalid transofmation: {invalid}")
+
     
     # save processed dataset
     if save and output is not None:
