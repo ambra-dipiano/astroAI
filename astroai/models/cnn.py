@@ -178,7 +178,7 @@ def cnn_bkg_cleaner(ds, conf, logdir, cpdir):
 # SOURCE LOCALISATION ENTRYPOINT
 def cnn_loc_regressor(ds, conf, logdir, cpdir):
     # split dataset
-    infotable = join(conf['cnn']['directory'], conf['cnn']['infotable'])
+    infotable = join(conf['cnn']['directory'], conf['preprocess']['infotable'])
     train_data, train_labels, test_data, test_labels = split_regression_dataset(ds, infotable, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
     # create model
     model = create_loc_regressor(binning=conf['preprocess']['binning'], number_of_conv=conf['cnn']['number_convs'], conv_filter=conf['cnn']['layers']['conv_filter'], conv_kern=conf['cnn']['layers']['conv_kernel'], pool_kern=conf['cnn']['layers']['sampling_kernel'], dense=conf['cnn']['layers']['dense'], dropout=conf['cnn']['layers']['dropout'])
