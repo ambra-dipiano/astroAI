@@ -95,8 +95,7 @@ def create_binary_classifier(binning, conv_filter=2, conv_kern=2, pool_kern=2, d
 def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, test_clean, logdir, cpdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, savename=None):
     # callbacks
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
-    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1, 
-                                                              save_freq=5*int(len(train_noisy) / batch_sz))
+    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1, save_freq=5*int(len(train_noisy) / batch_sz))
     earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")
 
     # compile
@@ -118,8 +117,7 @@ def compile_and_fit_bkg_cleaner(model, train_noisy, train_clean, test_noisy, tes
 def compile_and_fit_loc_regressor(model, train_ds, train_lb, test_ds, test_lb, logdir, cpdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, savename=None):
     # callbacks
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
-    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1,
-                                                              save_freq=5*int(len(train_ds) / batch_sz))
+    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1, save_freq=5*int(len(train_ds) / batch_sz))
     earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")
 
     # compile
@@ -140,8 +138,7 @@ def compile_and_fit_loc_regressor(model, train_ds, train_lb, test_ds, test_lb, l
 def compile_and_fit_binary_classifier(model, train_ds, train_lb, test_ds, test_lb, logdir, cpdir, batch_sz=32, epochs=25, learning=0.001, shuffle=True, savename=None):
     # callbacks
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
-    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1,
-                                                              save_freq=5*int(len(train_ds) / batch_sz))
+    checkpoints_callback = tf.keras.callbacks.ModelCheckpoint(filepath=cpdir, save_weights_only=True, verbose=1, save_freq=5*int(len(train_ds) / batch_sz))
     earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min")
 
     # compile
@@ -172,18 +169,16 @@ def cnn_bkg_cleaner(ds, conf, logdir, cpdir):
     # create model
     model = create_bkg_cleaner(binning=conf['preprocess']['binning'], conv_filter=conf['cnn']['layers']['conv_filter'], conv_kern=conf['cnn']['layers']['conv_kernel'], pool_kern=conf['cnn']['layers']['sampling_kernel'])
     # compile and fit
-    print('\n\n\n', conf['cnn']['saveas'], '\n\n\n')
     history = compile_and_fit_bkg_cleaner(model=model, train_clean=train_clean, train_noisy=train_noisy, test_clean=test_clean, test_noisy=test_noisy, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
 
 # SOURCE LOCALISATION ENTRYPOINT
 def cnn_loc_regressor(ds, conf, logdir, cpdir):
     # split dataset
-    infotable = join(conf['cnn']['directory'], conf['preprocess']['infotable'])
-    train_data, train_labels, test_data, test_labels = split_regression_dataset(ds, infotable, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
+    train_data, train_labels, test_data, test_labels = split_regression_dataset(ds, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
     # create model
-    model = create_loc_regressor(binning=conf['preprocess']['binning'], number_of_conv=conf['cnn']['number_convs'], conv_filter=conf['cnn']['layers']['conv_filter'], conv_kern=conf['cnn']['layers']['conv_kernel'], pool_kern=conf['cnn']['layers']['sampling_kernel'], dense=conf['cnn']['layers']['dense'], dropout=conf['cnn']['layers']['dropout'])
+    model = create_loc_regressor(binning=conf['preprocess']['binning'], number_of_conv=conf['cnn']['layers']['number_convs'], conv_filter=conf['cnn']['layers']['conv_filter'], conv_kern=conf['cnn']['layers']['conv_kernel'], pool_kern=conf['cnn']['layers']['sampling_kernel'], dense=conf['cnn']['layers']['dense'], dropout=conf['cnn']['layers']['dropout'])
     # compile and fit
-    history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
+    history = compile_and_fit_loc_regressor(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
 
 # SOURCE DETECTION ENTRYPOINT
 def cnn_binary_classifier(ds, conf, logdir, cpdir):
