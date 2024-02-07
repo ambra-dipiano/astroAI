@@ -181,7 +181,7 @@ def cnn_loc_regressor(ds, conf, logdir, cpdir):
     infotable = join(conf['cnn']['directory'], conf['cnn']['infotable'])
     train_data, train_labels, test_data, test_labels = split_regression_dataset(ds, infotable, split=conf['cnn']['split'], reshape=conf['cnn']['reshape'], binning=conf['preprocess']['binning'])
     # create model
-    model = create_loc_regressor(binning=conf['preprocess']['binning'], conv_filter=conf['cnn']['layers']['conv_filter'], conv_kern=conf['cnn']['layers']['conv_kernel'], pool_kern=conf['cnn']['layers']['sampling_kernel'], dense=conf['cnn']['layers']['dense'], dropout=conf['cnn']['layers']['dropout'])
+    model = create_loc_regressor(binning=conf['preprocess']['binning'], number_of_conv=conf['cnn']['number_convs'], conv_filter=conf['cnn']['layers']['conv_filter'], conv_kern=conf['cnn']['layers']['conv_kernel'], pool_kern=conf['cnn']['layers']['sampling_kernel'], dense=conf['cnn']['layers']['dense'], dropout=conf['cnn']['layers']['dropout'])
     # compile and fit
     history = compile_and_fit_binary_classifier(model=model, train_ds=train_data, train_lb=train_labels, test_ds=test_data, test_lb=test_labels, logdir=logdir, cpdir=cpdir, batch_sz=conf['cnn']['batch_sz'], epochs=conf['cnn']['epochs'], shuffle=conf['cnn']['shuffle'], learning=conf['cnn']['learning'], savename=conf['cnn']['saveas'])
 
