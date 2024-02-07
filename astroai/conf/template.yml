@@ -30,6 +30,7 @@ cnn:
     conv_kernel:        # Conv2D kernel
     sampling_kernel:    # AvgPool kernel
     # REGRESSOR LAYERS ONLY
+    number_convs:       # Number of Conv2D layers after the 1st one
     dropout:            # Dropout rate
     dense:              # Dense layer size
     
