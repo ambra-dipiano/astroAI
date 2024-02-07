@@ -247,9 +247,9 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
             if exposure is not None:
                 if exposure == 'random':
                     exposure = np.random.randint(10, row['duration'].values[0])
-                heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, filter=True, trange=(0, exposure), wcs=w)
+                heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, filter=True, trange=(0, exposure))
             else:
-                heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, wcs=w)
+                heatmap = extract_heatmap_from_table(heatmap, smoothing, binning)
         except:
             with fits.open(f) as h:
                 heatmap = smooth_heatmap(h[0].data, smoothing)
