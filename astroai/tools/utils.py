@@ -365,17 +365,15 @@ def split_regression_dataset(dataset, split=80, reshape=True, binning=250):
     # train dataset
     train_data = np.copy(dataset['DS'][:train_size])
     train_labels = np.copy(dataset['LABELS'][:train_size])
-    train_seeds = np.copy(dataset['SEED'][:train_size])
     # test dataset
     test_data = np.copy(dataset['DS'][train_size:])
     test_labels = np.copy(dataset['LABELS'][train_size:])
-    test_seeds = np.copy(dataset['SEED'][train_size:])
     print(train_data.shape, train_labels.shape)
     # reshape
     if reshape:
         train_data = train_data.reshape(train_data.shape[0], binning, binning, 1)
         test_data = test_data.reshape(test_data.shape[0], binning, binning, 1)  
-    return train_data, train_labels, train_seeds, test_data, test_labels, test_seeds
+    return train_data, train_labels, test_data, test_labels
 
 def split_noisy_dataset(dataset, split=80, reshape=True, binning=250):
     size = len(dataset['DS1'])
