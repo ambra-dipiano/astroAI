@@ -225,7 +225,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
     infodata = pd.read_csv(infotable, sep=' ', header=0).sort_values(by=['seed'])
         
     # create images dataset 
-    datasets = {'DS': [], 'LABELS': [], 'SEED': [], 'SOURCE': [], 'FILE': [], 'EXPOSURE': []}
+    datasets = {'DS': [], 'LABELS': []}
     invalid = 0
     print(f"Load DS data...")
     for f in tqdm(datafiles['DS'][:sample]):
@@ -262,7 +262,6 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
                 heatmap = smooth_heatmap(h[0].data, smoothing)
 
         # normalise map
-        # normalise map
         if norm_value == 1 and stretch:
             heatmap = stretch_smooth(heatmap, smoothing)
         elif norm_value == 1 and not stretch:
@@ -281,18 +280,12 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
         # append to ds
         datasets['DS'].append(heatmap)
         datasets['LABELS'].append((x,y))
-        datasets['SOURCE'].append((row['source_ra'].values[0], row['source_dec'].values[0]))
-        datasets['SEED'].append(seed)
-        datasets['EXPOSURE'].append(exposure)
-        datasets['FILE'].append(f)
 
     # convert to numpy array
     datasets['DS'] = np.array(datasets['DS'])
     datasets['LABELS'] = np.array(datasets['LABELS'])
-    datasets['SEED'] = np.array(datasets['SEED'])
     print(f"Total invalid transofmation: {invalid}")
 
-    
     # save processed dataset
     if save and output is not None:
         filename = join(output, saveas)
