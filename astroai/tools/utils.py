@@ -34,7 +34,7 @@ def set_wcs(point_ra, point_dec, point_ref, pixelsize):
     return w
 
 # extract heatmap from DL3 with configurable exposure
-def extract_heatmap_from_table(data, smoothing, nbins, save=False, save_name=None, filter=True, trange=None, wcs=None):
+def extract_heatmap_from_table(data, smoothing, nbins, save=False, save_name=None, filter=False, trange=None, wcs=None):
     if filter and trange is not None:
         data = data[(data['TIME'] >= trange[0]) & (data['TIME'] <= trange[1])] 
     ra, dec = data['RA'].to_numpy(), data['DEC'].to_numpy()
@@ -99,10 +99,10 @@ def normalise_dataset(ds, max_value, min_value=0, save=False, save_name=None):
 def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=None, wcs=None, vnorm=True, add_markers=None):
     if wcs is not None:
         ax = plt.subplot(projection=wcs)
-        ax.invert_yaxis()
+        #ax.invert_yaxis()
 
     else:
-        plt.figure()
+        ax = plt.subplot()
     plt.title(title)
     if vnorm:
         plt.imshow(heatmap, vmin=0, vmax=1)
@@ -110,7 +110,8 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
         plt.imshow(heatmap)
     if add_markers is not None:
         for m in add_markers.keys():
-            plt.scatter(x=add_markers[m][0], y=add_markers[m][1], marker='+', s=50, color='r')
+            yx = (add_markers[m]['y'], add_markers[m]['x'])
+            ax.add_patch(plt.Circle(yx, radius=add_markers[m]['r'], edgecolor='r', facecolor='none'))
 
     plt.xlabel('x(det) [pixels]')
     plt.ylabel('y(det) [pixels]')
@@ -171,12 +172,14 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
         for f in tqdm(datafiles[k][:sample]):
             # load
             try:
-                with fits.open(f) as h:
-                    heatmap = extract_heatmap(h[0].data, trange=trange, smoothing=smoothing, nbins=binning, filter=True)
-            except:
                 heatmap = Table.read(f, hdu=1).to_pandas()
-                # integrate exposure
-                heatmap = extract_heatmap_from_table(heatmap, trange=trange, smoothing=smoothing, nbins=binning, filter=True)
+                heatmap = extract_heatmap_from_table(heatmap, smoothing, binning, trange=trange, filter=True)
+            except:
+                with fits.open(f) as h:
+                    if smoothing != 0:
+                        heatmap = smooth_heatmap(h[0].data, smoothing)
+                    else:
+                        heatmap = h[0].data
 
             # normalise map
             if norm_value == 1 and stretch:
@@ -259,7 +262,10 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
                 heatmap = extract_heatmap_from_table(heatmap, smoothing, binning)
         except:
             with fits.open(f) as h:
-                heatmap = smooth_heatmap(h[0].data, smoothing)
+                if smoothing != 0:
+                    heatmap = smooth_heatmap(h[0].data, smoothing)
+                else:
+                    heatmap = h[0].data
 
         # normalise map
         if norm_value == 1 and stretch:
