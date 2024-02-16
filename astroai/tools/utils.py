@@ -96,13 +96,8 @@ def normalise_dataset(ds, max_value, min_value=0, save=False, save_name=None):
     return ds
 
 # plot heatmap
-def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=None, wcs=None, vnorm=True, add_markers=None):
-    if wcs is not None:
-        ax = plt.subplot(projection=wcs)
-        #ax.invert_yaxis()
-
-    else:
-        ax = plt.subplot()
+def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=None, vnorm=True, add_markers=None):
+    ax = plt.subplot()
     plt.title(title)
     if vnorm:
         plt.imshow(heatmap, vmin=0, vmax=1)
@@ -124,25 +119,17 @@ def plot_heatmap(heatmap, title='heatmap', show=False, save=False, save_name=Non
     return
 
 # plot heatmap
-def plot_heatmap_wcs(heatmap, wcs, title='heatmap', show=False, save=False, save_name=None, src=None, pnt=None):
+def plot_heatmap_wcs(heatmap, wcs, title='heatmap', show=False, save=False, save_name=None, add_markers=None):
     ax = plt.subplot(projection=wcs, aspect='equal')
     ax.coords['ra'].set_format_unit(u.deg)
     ax.coords['dec'].set_format_unit(u.deg)
     ax.coords['ra'].set_axislabel('Right Ascension [deg]')
     ax.coords['dec'].set_axislabel('Declination [deg]')
     img = ax.imshow(heatmap, vmin=0, vmax=1, origin='lower') 
-    if pnt is not None:
-        try:
-            ra, dec = pnt.ra, pnt.dec
-        except:
-            ra, dec = pnt[0], pnt[1]
-        ax.scatter(x=ra, y=dec, marker='+', s=50, facecolor='none', edgecolor='r', transform=ax.get_transform(wcs))
-    if src is not None:
-        try:
-            ra, dec = src.ra, src.dec
-        except:
-            ra, dec = src[0], src[1]
-        ax.scatter(x=ra, y=dec, marker='o', s=50, facecolor='none', edgecolor='r', transform=ax.get_transform(wcs))
+    if add_markers is not None:
+        for m in add_markers.keys():
+            yx = (add_markers[m]['y'], add_markers[m]['x'])
+            ax.add_patch(plt.Circle(yx, radius=add_markers[m]['r'], edgecolor='r', facecolor='none'))
     ax.set_title(title)
     plt.colorbar(img)
     if save and save_name is not None:
