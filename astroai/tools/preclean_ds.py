@@ -37,7 +37,7 @@ def main(configuration, model):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
-    parser.add_argument('-m', '--model', type=str, choices=['cleaner_200x200_filter12_2kp', 'cleaner_200x200_filter6_500p', 'cleaner_200x200_filter2_70p'], help='CNN-cleaner model to use for background subtraction')
+    parser.add_argument('-m', '--model', type=str, required=True, choices=['cleaner_200x200_filter12_2kp', 'cleaner_200x200_filter6_500p', 'cleaner_200x200_filter2_70p'], help='CNN-cleaner model to use for background subtraction')
     args = parser.parse_args()
 
     main(args.configuration, args.model)
