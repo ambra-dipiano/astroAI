@@ -226,8 +226,10 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
         assert seed == row['seed'].values[0]
         assert row['name'].values[0] in f
         # set wcs
+        pixelsize = (2 * row['fov'].values[0]) / binning
+        point_ref = (binning / 2) + (pixelsize / 2)
         w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], 
-                    point_ref=binning/2, pixelsize=(2*row['fov'].values[0])/binning)
+                    point_ref=point_ref, pixelsize=pixelsize)
         try:
             x, y = w.world_to_pixel(SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg', frame='icrs'))
             # scale label from pixel to [0,1] 
@@ -272,7 +274,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
 
         # append to ds
         datasets['DS'].append(heatmap)
-        datasets['LABELS'].append((x,y))
+        datasets['LABELS'].append((y,x))
 
     # convert to numpy array
     datasets['DS'] = np.array(datasets['DS'])
