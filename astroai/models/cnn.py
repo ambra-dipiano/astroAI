@@ -31,13 +31,9 @@ def create_bkg_cleaner(binning, encoder=2, decoder=1, conv_filter=2, conv_kern=2
         x = tf.keras.layers.AveragePooling2D((pool_kern, pool_kern), padding='same')(x)
         x = tf.keras.layers.Conv2D(conv_filter, (conv_kern, conv_kern), activation='relu', padding='same')(x)
         x = tf.keras.layers.AveragePooling2D((pool_kern, pool_kern), padding='same')(x)
-        x = tf.keras.layers.Conv2D(conv_filter, (conv_kern, conv_kern), activation='relu', padding='same')(x)
-        x = tf.keras.layers.AveragePooling2D((pool_kern, pool_kern), padding='same')(x)
 
     # decoder #1
     if decoder == 1:
-        x = tf.keras.layers.Conv2D(conv_filter, (conv_kern, conv_kern), activation='relu', padding='same')(x)
-        x = tf.keras.layers.UpSampling2D((pool_kern, pool_kern))(x)
         x = tf.keras.layers.Conv2D(conv_filter, (conv_kern, conv_kern), activation='relu', padding='same')(x)
         x = tf.keras.layers.UpSampling2D((pool_kern, pool_kern))(x)
         x = tf.keras.layers.Conv2D(conv_filter, (conv_kern, conv_kern), activation='relu', padding='same')(x)
