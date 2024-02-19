@@ -271,7 +271,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
             heatmap.reshape(binning, binning)
 
         # append to ds
-        datasets['DS'].append(np.fliplr(heatmap))
+        datasets['DS'].append(heatmap)
         datasets['LABELS'].append((x,y))
 
     # convert to numpy array
