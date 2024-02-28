@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from os import listdir
 from os.path import join, isfile, basename
 from datetime import datetime
+from astropy.time import Time
 from astropy.wcs import WCS
 from astropy.table import Table
 from astropy.io import fits
@@ -449,3 +450,57 @@ def checkpoint_dir(savename, logdate=False):
 def load_dataset_npy(path):
     ds = np.load(path, allow_pickle=True, encoding='latin1', fix_imports=True).flat[0]
     return ds
+
+def convert_unix_to_tt(time_unix):
+    t = Time(time_unix, format='unix')
+    time_mjd = t.mjd
+    time_tt = convert_mjd_to_tt(time_mjd)
+    return time_tt
+
+def convert_tt_to_mjd(time_tt):
+    time_mjd = (float(time_tt) / 86400.0) + 53005.0
+    return time_mjd
+
+def convert_mjd_to_tt(time_mjd):
+    time_tt = (float(time_mjd) - 53005.0) *  86400.0
+    return time_tt
+
+def convert_gal_to_fk5(l, b):
+    l = float(l)
+    b = float(b)
+    if l < 0 or l > 360:
+            return  -2,-2
+    if b < -90 or b > 90:
+            return  -2,-2
+
+    gal_coord = SkyCoord(l, b, unit='deg', frame='galactic')
+    fk5_coord = gal_coord.fk5
+    ra = "{0:.4f}".format(fk5_coord.ra.degree)
+    dec = "{0:.4f}".format(fk5_coord.dec.degree)
+    return ra,dec
+
+def convert_fk5_to_gal(ra, dec):
+    ra = float(ra)
+    dec = float(dec)
+    if ra < -360 or ra > 360:
+            return  -2,-2
+    if dec < -90 or dec > 90:
+            return  -2,-2
+
+    fk5_coord = SkyCoord(ra, dec, unit='deg', frame='fk5')
+    gal_coord = fk5_coord.galactic
+    l = "{0:.4f}".format(gal_coord.l.degree)
+    b = "{0:.4f}".format(gal_coord.b.degree)
+    return l,b
+
+def get_irf_file(caldb, irf, caldb_path):
+    if caldb in ['prod5-v0.1', 'prod5']:
+        irf_file = str(join(caldb_path, caldb, irf + '.fits'))
+    elif caldb in ['prod3b-v2']:
+        irf_file = str(join(caldb_path, caldb, "bcf", irf, "irf_file.fits"))
+    else:
+        raise ValueError(f'{caldb} invalid CALDB')
+    if not isfile(irf_file):
+        raise ValueError(f'{irf_file} not found in CALDB')
+    return irf_file
+
