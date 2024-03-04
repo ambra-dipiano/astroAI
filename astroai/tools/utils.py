@@ -504,3 +504,13 @@ def get_irf_file(caldb, irf, caldb_path):
         raise ValueError(f'{irf_file} not found in CALDB')
     return irf_file
 
+def get_irf_name(irf, caldb_path):
+    print(f'Input IRF: {irf}')
+    irf = irf.replace('0.5h', '1800s').replace('5h', '18000s').replace('50h', '180000s')
+    irf = irf.replace('z20', '20deg').replace('z40', '40deg').replace('z60', '60deg')
+    irf = irf.replace('_N_', '_NorthAz_').replace('_S_', '_SouthAz_')
+    s = irf.split(sep='_')
+    print(f'Search: {s}')
+    irf = [f for f in listdir(caldb_path) if all(word in f for word in s) and 'MST' not in f][0]
+    print(f'Output IRF: {irf}')
+    return join(caldb_path, irf.replace('.fits', ''))
