@@ -21,10 +21,13 @@ def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
     ganalysis.set_eventfilename(dl3_file)
     # get reducedirf or make it if missing
     try:
-        ganalysis.set_reducedirfs(conf['execute']['reducedirfdir'], irf=conf['simulation']['id'])
-    except:
+        ganalysis.set_reducedirfs(conf['execute']['reducedirfdir'], seed=conf['simulation']['id'])
+    except AssertionError as e:
+        print(e)
+        print('Execute DL3 -> DL4 reduction')
+        dataset = ganalysis.make_empty_dataset()
         execute_dl3_dl4_reduction(conf=conf)
-        ganalysis.set_reducedirfs(conf['execute']['reducedirfdir'], irf=conf['simulation']['id'])
+        ganalysis.set_reducedirfs(conf['execute']['reducedirfdir'], seed=conf['simulation']['id'])
     # read dataset
     dataset = ganalysis.read_dataset()
     stats = ganalysis.run_gammapy_analysis_pipeline(dataset, target_name, target_dict)
@@ -38,7 +41,7 @@ if __name__ == '__main__':
 
     # get configuration and infodata
     conf = load_yaml_conf(args.configuration)
-    infodata = pd.read_csv(conf['datfile'], sep=' ', header=0).sort_values(by=['seed'])
+    infodata = pd.read_csv(join(conf['simulation']['directory'], conf['simulation']['datfile']), sep=' ', header=0).sort_values(by=['seed'])
 
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
