@@ -20,13 +20,13 @@ def main(configuration):
     if 'detect' in conf['mode'] or 'class' in conf['mode']:
         ds1_dataset_path = join(conf['directory'], 'crab', 'sim')
         ds2_dataset_path = join(conf['directory'], 'background', 'sim')
-        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], norm_value=conf['norm_value'], stretch=conf['stretch'], saveas=conf['saveas'])
+        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, infotable=join(conf['directory'], conf['infotable']), trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=conf['directory'], norm_value=conf['norm_value'], stretch=conf['stretch'], saveas=conf['saveas'])
 
     # CLEANING
     elif 'clean' in conf['mode']:
         ds1_dataset_path = join(conf['directory'], 'noisy')
         ds2_dataset_path = join(conf['directory'], 'clean')
-        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=join(conf['directory'], '..'), norm_value=conf['norm_value'], stretch=conf['stretch'], saveas=conf['saveas'])
+        ds = process_dataset(ds1_dataset_path, ds2_dataset_path, infotable=join(conf['directory'], conf['infotable']), trange=trange, smoothing=conf['smoothing'], binning=conf['binning'], sample=conf['sample'], save=True, output=join(conf['directory'], '..'), norm_value=conf['norm_value'], stretch=conf['stretch'], saveas=conf['saveas'])
 
     # REGRESSION
     elif 'loc' in conf['mode'] or 'regress' in conf['mode']:
@@ -37,8 +37,8 @@ def main(configuration):
 
   
 
-  
 
+  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
