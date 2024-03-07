@@ -18,7 +18,6 @@
 import os
 import numpy as np
 from astropy import units as u
-from time import time
 from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table
 from astropy.time import Time
@@ -33,29 +32,12 @@ from gammapy.datasets import MapDataset
 from gammapy.estimators import ExcessMapEstimator
 from gammapy.estimators.utils import find_peaks
 from gammapy.irf import load_cta_irfs
-from gammapy.makers import (
-    MapDatasetMaker,
-    SafeMaskMaker,
-    ReflectedRegionsFinder,
-    ReflectedRegionsBackgroundMaker,
-    )
+from gammapy.makers import  MapDatasetMaker, SafeMaskMaker, ReflectedRegionsFinder, ReflectedRegionsBackgroundMaker
 from gammapy.maps import Map, WcsGeom, MapAxis
 from astroai.tools.utils import convert_tt_to_mjd, get_irf_file
-from astroai.tools.logger import set_logger
 
 # Ignore some warnings
 filterwarnings("ignore", category=np.VisibleDeprecationWarning)
-
-def execute_dl3_dl4_reduction(conf):
-    # Set (Externally stored) IRFs file name. Need OBS.xml, JOB.xml
-    conf['simulation']['irf_file'] = get_irf_file(conf['simulation']['caldb'], conf['simulation']['irf'], conf['simulation']['caldb_path'])
-    # Start Gammapy Analysis.
-    s = GAnalysis()
-    s.set_conf(conf)
-    # Run the DL3 to DL4 IRFs reduction.
-    dataset = s.make_reduced_irfs()
-    s.write_dataset(dataset)
-    del s
 
 class GAnalysis():
     def __init__(self) -> None:
@@ -93,21 +75,22 @@ class GAnalysis():
         return axis_energy_true
         
     def define_geometry(self):
-        # 1 - Define the Spatial Sky Geometry for the Maps as the ROI in JOB.xml        
-        sky_direction = SkyCoord(self.conf['selection']['roi_ra'], self.conf['selection']['roi_dec'], unit=u.Unit(self.conf['selection']['roi_unit']), frame=self.conf['selection']['roi_frame'])
-        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['selection']['roi_unit'])
+        # 1 - Define the Spatial Sky Geometry for the Maps as the ROI
+        print('!!!\n\n', self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], u.Unit(self.conf['simulation']['point_unit']), self.conf['simulation']['skyframeref'], '\n\n!!!')     
+        sky_direction = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], unit=u.Unit(self.conf['simulation']['point_unit']), frame=self.conf['simulation']['skyframeref'])
+        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['simulation']['point_unit'])
         sky_pixsize = self.conf['execute']['pixel_size'] # Must be in deg.
         # 2 - Define the Spectral Grid: Energy Axes.
         axis_energy_reco = self.define_energy_axis_reco()
         # 3 - Define the Geometry object
-        geom = WcsGeom.create(skydir=sky_direction, binsz=sky_pixsize, width=(sky_mapwidth, sky_mapwidth), frame=self.conf['selection']['roi_frame'], proj="CAR", axes=[axis_energy_reco])
+        geom = WcsGeom.create(skydir=sky_direction, binsz=sky_pixsize, width=(sky_mapwidth, sky_mapwidth), frame=self.conf['simulation']['skyframeref'], proj="CAR", axes=[axis_energy_reco])
         return geom
         
     def define_observation(self):
         # 1 - Load IRFs
         irfs = load_cta_irfs(self.conf['simulation']['irf_file'])
         # 2 - Pointing. From OBS.xml
-        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['point_frame'], unit=self.conf['simulation']['point_unit'])
+        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
         # 3 - Set a standard livetime through tstart and tstop.
         # It will be updated during the science analysis with the actual data livetime.
         # Typical batch size = 100 s.
@@ -139,7 +122,7 @@ class GAnalysis():
         maker = MapDatasetMaker(selection = ['exposure', 'background', 'psf', 'edisp'])
         # Offset-max  = mask IRF data outside a maximum offset from Geometry central Sky Direction
         # Aeff-default= mask IRF data outside the energy ranged specified in the DL3 data files, if available.
-        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['selection']['roi_unit'])
+        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['simulation']['point_unit'])
         safe_mask_maker = SafeMaskMaker(methods=["aeff-default","offset-max"], offset_max=sky_mapwidth)
         dataset = maker.run(dataset_empty, observation)
         dataset = safe_mask_maker.run(dataset, observation)        
@@ -199,7 +182,7 @@ class GAnalysis():
         cb = fig.colorbar(im, ax = ax, location = 'right', shrink = 0.8)
         
         # Pot FoV Centre if it is inside axes limits
-        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], unit=self.conf['simulation']['point_unit'], frame=self.conf['simulation']['point_frame'])
+        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], unit=self.conf['simulation']['point_unit'], frame=self.conf['simulation']['skyframeref'])
         if sky_map.geom.contains(pointing):
             ax.plot_coord(pointing, marker='X', color=extracolor)
         
@@ -230,7 +213,7 @@ class GAnalysis():
                   "Colorbar": f"{tag} [{unit}]. Stretch: {stretch}",
                   "Output"  : os.path.join(output_directory, title_output)
                   } 
-        if self.conf['simaultion']['skyframeref'] == 'galactic':
+        if self.conf['simulation']['skyframeref'] == 'galactic':
             Titles['X_label'] = "Galactic Longitude"
             Titles['Y_label'] = "Galactic Latitude"    
         
@@ -243,7 +226,7 @@ class GAnalysis():
         ax.set_ylabel(Titles['Y_label'], fontsize='large')
         
         # RA, DEC in degree.decimal, not hh:mm:ss
-        if self.conf['simaultion']['skyframeref'] != 'galactic':
+        if self.conf['simulation']['skyframeref'] != 'galactic':
             ax.coords[0].set_major_formatter('d.d')
             ax.coords[1].set_major_formatter('d.d') 
             ax.invert_xaxis()       
@@ -326,12 +309,12 @@ class GAnalysis():
         event_list = EventList(event_table)
 
         # Gammapy GTI
-        if self.conf['selection']['timeref_timesys'] == 'tt':
-            time_ref = convert_tt_to_mjd(self.conf['selection']['timeref'])
+        if self.conf['simulation']['timesys'] == 'tt':
+            time_ref = convert_tt_to_mjd(self.conf['simulation']['timeref'])
         else:
-            time_ref = self.conf['selection']['timeref']
-        tmin = self.conf['selection']['tmin']*u.Unit(self.conf['selection']['timeunit'])
-        tmax = self.conf['selection']['tmax']*u.Unit(self.conf['selection']['timeunit'])
+            time_ref = self.conf['simulation']['timeref']
+        tmin = self.conf['selection']['tmin']*u.Unit(self.conf['simulation']['timeunit'])
+        tmax = self.conf['selection']['tmax']*u.Unit(self.conf['simulation']['timeunit'])
         gti = GTI.create(tmin, tmax, reference_time=Time(time_ref, format='mjd'))
         
         # We need to rescale the background counts and exposure maps according to actual livetime
@@ -367,9 +350,9 @@ class GAnalysis():
         hotspots_table = find_peaks(sqrt_TS_map, threshold=self.conf['blindsearch']['sigmathresh'], min_distance=OnOffRegionRadius)
         try:
             # Select hotspots within a maximum offset from pointing direction.
-            Pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['point_frame'], unit=self.conf['simulation']['point_unit'])
+            Pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
             Max_offset = self.conf['blindsearch']['maxoffset'] * u.Unit(self.conf['simulation']['point_unit'])
-            positions = SkyCoord(hotspots_table['ra'], hotspots_table['dec'], unit=u.deg, frame=self.conf['simaultion']['skyframeref'])
+            positions = SkyCoord(hotspots_table['ra'], hotspots_table['dec'], unit=u.deg, frame=self.conf['simulation']['skyframeref'])
             offset_mask = [position.separation(Pointing) > Max_offset for position in positions]
             hotspots_table.remove_rows(offset_mask)
             # Select a maximum number of hotspots
@@ -382,7 +365,7 @@ class GAnalysis():
             raise KeyError('No candidate found.')
         
         # Save SqrtTS Map and Zoom on the Hotspots.        
-        if self.conf['plotts']:
+        if self.conf['execute']['plotts']:
             # Plot the sqrt_ts map with all the regions            
             self.plot_Wcs2DMap(sqrt_TS_map, f"SqrtTS", gti=dataset.gti, hotspots=hotspots)
 
@@ -392,7 +375,7 @@ class GAnalysis():
                 cutout = dataset.cutout(hotspot.center, width=4.0*OnOffRegionRadius)
                 self.plot_Wcs2DMap(cutout.counts, f"Hotspot{i+1} Counts", stretch='sqrt', gti=dataset.gti, hotspots=[hotspot])
         # Plot the zoom over each of the hotspots (Sqrt TS Map)
-        if self.conf['blindsearch']['plotzoom'] and self.conf['plotts']:
+        if self.conf['blindsearch']['plotzoom'] and self.conf['execute']['plotts']:
             for i, hotspot in enumerate(hotspots):
                 cutout = sqrt_TS_map.cutout(hotspot.center, width=4.0*OnOffRegionRadius)
                 self.plot_Wcs2DMap(cutout, f"Hotspot{i+1} SqrtTS", gti=dataset.gti, hotspots=[hotspot])
@@ -405,18 +388,18 @@ class GAnalysis():
         
         # Write selected source as a DS9 region file. Create job directory if it does not exist
         os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
-        regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simaultion']['skyframeref']), OnOffRegionRadius)
-        regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates"), overwrite=True)        
+        regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simulation']['skyframeref']), OnOffRegionRadius)
+        regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)        
         return target_ra, target_dec
 
     def run_aperture_photometry(self, dataset, target_dict, target_name, event_list, method="reflection"):
         # 1 - Define the ON Region, Compute and store ON Counts info.
-        target_position = SkyCoord(target_dict['ra'], target_dict['dec'], frame=self.conf['selection']['roi_frame'], unit=self.conf['selection']['roi_unit'])
+        target_position = SkyCoord(target_dict['ra'], target_dict['dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
         on_region_radius = Angle(target_dict['rad'], unit=u.deg)
         on_region = CircleSkyRegion(target_position, on_region_radius)
         
         # 2 - Define the Pointing and compute the Target-Pointing distance
-        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['point_frame'], unit=self.conf['simulation']['point_unit'])
+        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
         distance_pointing_target = target_position.separation(pointing)
 
         # 3 - Extract Counts, Exposure, Edisp, IRF background in the ON region.
@@ -474,3 +457,12 @@ class GAnalysis():
             # Plot
             self.plot_Wcs2DMap(cutout.counts, f"sky1", gti=cutout.gti, stretch='sqrt', hotspots=hotspots, mask=cutout.mask_safe_image)
         return spectrum_dataset_OnOff, stats
+
+    def execute_dl3_dl4_reduction(self):
+        # Set (Externally stored) IRFs file name. Need OBS.xml, JOB.xml
+        self.conf['simulation']['irf_file'] = get_irf_file(self.conf['simulation']['caldb'], self.conf['simulation']['irf'], self.conf['simulation']['caldb_path'])
+        # Start Gammapy Analysis.
+        # Run the DL3 to DL4 IRFs reduction.
+        dataset = self.make_reduced_irfs()
+        self.write_dataset(dataset)
+        self.set_reducedirfs(self.conf['execute']['reducedirfdir'], seed=self.conf['simulation']['id'])
