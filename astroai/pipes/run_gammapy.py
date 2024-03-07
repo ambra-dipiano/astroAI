@@ -13,7 +13,7 @@ from tqdm import tqdm
 from os import makedirs
 from os.path import join
 from astroai.tools.utils import load_yaml_conf, get_irf_name
-from astroai.tools.ganalysis import GAnalysis, execute_dl3_dl4_reduction
+from astroai.tools.ganalysis import GAnalysis
 
 def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
     ganalysis = GAnalysis()
@@ -25,9 +25,7 @@ def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
     except AssertionError as e:
         print(e)
         print('Execute DL3 -> DL4 reduction')
-        dataset = ganalysis.make_empty_dataset()
-        execute_dl3_dl4_reduction(conf=conf)
-        ganalysis.set_reducedirfs(conf['execute']['reducedirfdir'], seed=conf['simulation']['id'])
+        ganalysis.execute_dl3_dl4_reduction()
     # read dataset
     dataset = ganalysis.read_dataset()
     stats = ganalysis.run_gammapy_analysis_pipeline(dataset, target_name, target_dict)
@@ -59,8 +57,6 @@ if __name__ == '__main__':
         dl3 = join(conf['simulation']['directory'], f'crab_{seed:05d}.fits')
         conf['simulation']['point_ra'] = row['point_ra'].values[0]
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
-        conf['execute']['roi_ra'] = row['point_ra'].values[0]
-        conf['execute']['roi_dec'] = row['point_dec'].values[0]
         conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
 
         # setup coordinates
