@@ -11,7 +11,7 @@ import argparse
 import pandas as pd
 from tqdm import tqdm
 from os import makedirs
-from os.path import join
+from os.path import join, dirname
 from astroai.tools.utils import load_yaml_conf, get_irf_name
 from astroai.tools.ganalysis import GAnalysis
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     # get configuration and infodata
     conf = load_yaml_conf(args.configuration)
-    infodata = pd.read_csv(join(conf['simulation']['directory'], conf['simulation']['datfile']), sep=' ', header=0).sort_values(by=['seed'])
+    infodata = pd.read_csv(join(dirname(conf['simulation']['directory']), conf['simulation']['datfile']), sep=' ', header=0).sort_values(by=['seed'])
 
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
