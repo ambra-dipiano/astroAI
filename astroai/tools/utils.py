@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import astropy.units as u
 import matplotlib.pyplot as plt
-from os import listdir
+from os import listdir, system
 from os.path import join, isfile, basename
 from datetime import datetime
 from astropy.time import Time
@@ -141,7 +141,7 @@ def plot_heatmap_wcs(heatmap, wcs, title='heatmap', show=False, save=False, save
     return
 
 # gather simulations and create heatmaps 
-def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothing, binning, sample, save=False, output=None, norm_value=1, stretch=False):
+def process_dataset(ds1_dataset_path, ds2_dataset_path, infotable, saveas, trange, smoothing, binning, sample, save=False, output=None, norm_value=1, stretch=False):
     datapath = {'DS1': ds1_dataset_path, 'DS2': ds2_dataset_path}
 
     # datasets files
@@ -201,6 +201,7 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, saveas, trange, smoothin
     if save and output is not None:
         filename = join(output, saveas)
         np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+        system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
         print(f"Process complete: {filename}")
     return datasets
 
@@ -286,6 +287,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
     if save and output is not None:
         filename = join(output, saveas)
         np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+        system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
         print(f"Process complete: {filename}")
     return datasets
 
