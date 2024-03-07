@@ -57,6 +57,7 @@ if __name__ == '__main__':
         dl3 = join(conf['simulation']['directory'], f'crab_{seed:05d}.fits')
         conf['simulation']['point_ra'] = row['point_ra'].values[0]
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
+        conf['simulation']['caldb_path'] += '/data/cta'
         conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
 
         # setup coordinates
