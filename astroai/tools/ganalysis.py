@@ -41,6 +41,7 @@ from gammapy.makers import (
     )
 from gammapy.maps import Map, WcsGeom, MapAxis
 from astroai.tools.utils import convert_tt_to_mjd, get_irf_file
+from astroai.tools.logger import set_logger
 
 # Ignore some warnings
 filterwarnings("ignore", category=np.VisibleDeprecationWarning)
@@ -48,11 +49,9 @@ filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 def execute_dl3_dl4_reduction(conf):
     # Set (Externally stored) IRFs file name. Need OBS.xml, JOB.xml
     conf['simulation']['irf_file'] = get_irf_file(conf['simulation']['caldb'], conf['simulation']['irf'], conf['simulation']['caldb_path'])
-
     # Start Gammapy Analysis.
     s = GAnalysis()
     s.set_conf(conf)
-    
     # Run the DL3 to DL4 IRFs reduction.
     dataset = s.make_reduced_irfs()
     s.write_dataset(dataset)
@@ -61,6 +60,10 @@ def execute_dl3_dl4_reduction(conf):
 class GAnalysis():
     def __init__(self) -> None:
         pass
+
+    def set_logger(self, logger):
+        self.log = logger
+        return self
 
     def set_conf(self, conf):
         self.conf = conf
@@ -91,7 +94,7 @@ class GAnalysis():
         
     def define_geometry(self):
         # 1 - Define the Spatial Sky Geometry for the Maps as the ROI in JOB.xml        
-        sky_direction = SkyCoord(self.conf['selection']['roi_ra'], self.conf['selection']['roi_dec'], unit = u.Unit(self.conf['selection']['roi_unit']), frame = self.conf['selection']['roi_frame'])
+        sky_direction = SkyCoord(self.conf['selection']['roi_ra'], self.conf['selection']['roi_dec'], unit=u.Unit(self.conf['selection']['roi_unit']), frame=self.conf['selection']['roi_frame'])
         sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['selection']['roi_unit'])
         sky_pixsize = self.conf['execute']['pixel_size'] # Must be in deg.
         # 2 - Define the Spectral Grid: Energy Axes.
