@@ -28,7 +28,7 @@ def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
         ganalysis.execute_dl3_dl4_reduction()
     # read dataset
     dataset = ganalysis.read_dataset()
-    stats = ganalysis.run_gammapy_analysis_pipeline(dataset, target_name, target_dict)
+    stats, candidate = ganalysis.run_gammapy_analysis_pipeline(dataset, target_name, target_dict)
     return stats
 
 
