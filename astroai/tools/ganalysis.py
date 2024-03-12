@@ -265,14 +265,17 @@ class GAnalysis():
         # SECTION 3 - BLIND SEARCH
         if self.conf['execute']['blindsearch']:            
             # Perform Blindsearch
-            target_ra, target_dec = self.run_blind_search(dataset, blind_search_method = 'first')
+            try:
+                target_ra, target_dec = self.run_blind_search(dataset, blind_search_method = 'first')
+            except:
+                target_ra, target_dec = np.nan, np.nan
             # Update target dict
             target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
             if name=='None':
                 name='Hotspot'        
 
         # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
-        if self.conf['execute']['computeph']:
+        if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
             spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, method=self.conf['photometry']['onoff_method'])
         
             # Propagate statistical errors on Excess and Li&Ma Significance
