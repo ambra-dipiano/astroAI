@@ -7,6 +7,7 @@
 # Ambra Di Piano <ambra.dipiano@inaf.it>
 # *******************************************************************************
 
+import warnings
 import argparse
 import pandas as pd
 from tqdm import tqdm
@@ -14,6 +15,9 @@ from os import makedirs
 from os.path import join, dirname
 from astroai.tools.utils import load_yaml_conf, get_irf_name
 from astroai.tools.ganalysis import GAnalysis
+
+with warnings.catch_warnings():
+    warnings.filterwarnings('error')
 
 def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
     ganalysis = GAnalysis()
@@ -23,13 +27,11 @@ def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
     try:
         ganalysis.set_reducedirfs(conf['execute']['reducedirfdir'], seed=conf['simulation']['id'])
     except AssertionError as e:
-        print(e)
-        print('Execute DL3 -> DL4 reduction')
         ganalysis.execute_dl3_dl4_reduction()
     # read dataset
     dataset = ganalysis.read_dataset()
     stats, candidate = ganalysis.run_gammapy_analysis_pipeline(dataset, target_name, target_dict)
-    return stats
+    return stats, candidate
 
 
 if __name__ == '__main__':
@@ -57,7 +59,8 @@ if __name__ == '__main__':
         dl3 = join(conf['simulation']['directory'], f'crab_{seed:05d}.fits')
         conf['simulation']['point_ra'] = row['point_ra'].values[0]
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
-        conf['simulation']['caldb_path'] += '/data/cta'
+        if '/data/cta' not in conf['simulation']['caldb_path']:
+            conf['simulation']['caldb_path'] += '/data/cta'
         conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
 
         # setup coordinates
@@ -66,7 +69,7 @@ if __name__ == '__main__':
 
         # run pipeline
         stats, candidate = run_gammapy_pipeline(conf=conf, dl3_file=dl3, target_name=f"crab_{seed:05d}", target_dict=candidate)
-        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_err']} {stats['sigma']}")
+        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']}")
 
     results.close()
 

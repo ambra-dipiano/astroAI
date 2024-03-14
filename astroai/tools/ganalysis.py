@@ -76,9 +76,8 @@ class GAnalysis():
         
     def define_geometry(self):
         # 1 - Define the Spatial Sky Geometry for the Maps as the ROI
-        print('!!!\n\n', self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], u.Unit(self.conf['simulation']['point_unit']), self.conf['simulation']['skyframeref'], '\n\n!!!')     
-        sky_direction = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], unit=u.Unit(self.conf['simulation']['point_unit']), frame=self.conf['simulation']['skyframeref'])
-        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['simulation']['point_unit'])
+        sky_direction = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], unit=u.Unit(self.conf['simulation']['skyframeunitref']), frame=self.conf['simulation']['skyframeref'])
+        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['simulation']['skyframeunitref'])
         sky_pixsize = self.conf['execute']['pixel_size'] # Must be in deg.
         # 2 - Define the Spectral Grid: Energy Axes.
         axis_energy_reco = self.define_energy_axis_reco()
@@ -90,7 +89,7 @@ class GAnalysis():
         # 1 - Load IRFs
         irfs = load_cta_irfs(self.conf['simulation']['irf_file'])
         # 2 - Pointing. From OBS.xml
-        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
+        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['skyframeunitref'])
         # 3 - Set a standard livetime through tstart and tstop.
         # It will be updated during the science analysis with the actual data livetime.
         # Typical batch size = 100 s.
@@ -122,7 +121,7 @@ class GAnalysis():
         maker = MapDatasetMaker(selection = ['exposure', 'background', 'psf', 'edisp'])
         # Offset-max  = mask IRF data outside a maximum offset from Geometry central Sky Direction
         # Aeff-default= mask IRF data outside the energy ranged specified in the DL3 data files, if available.
-        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['simulation']['point_unit'])
+        sky_mapwidth = 2*float(self.conf['selection']['roi_ringrad']) * u.Unit(self.conf['simulation']['skyframeunitref'])
         safe_mask_maker = SafeMaskMaker(methods=["aeff-default","offset-max"], offset_max=sky_mapwidth)
         dataset = maker.run(dataset_empty, observation)
         dataset = safe_mask_maker.run(dataset, observation)        
@@ -182,7 +181,7 @@ class GAnalysis():
         cb = fig.colorbar(im, ax = ax, location = 'right', shrink = 0.8)
         
         # Pot FoV Centre if it is inside axes limits
-        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], unit=self.conf['simulation']['point_unit'], frame=self.conf['simulation']['skyframeref'])
+        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], unit=self.conf['simulation']['skyframeunitref'], frame=self.conf['simulation']['skyframeref'])
         if sky_map.geom.contains(pointing):
             ax.plot_coord(pointing, marker='X', color=extracolor)
         
@@ -353,8 +352,8 @@ class GAnalysis():
         hotspots_table = find_peaks(sqrt_TS_map, threshold=self.conf['blindsearch']['sigmathresh'], min_distance=OnOffRegionRadius)
         try:
             # Select hotspots within a maximum offset from pointing direction.
-            Pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
-            Max_offset = self.conf['blindsearch']['maxoffset'] * u.Unit(self.conf['simulation']['point_unit'])
+            Pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['skyframeunitref'])
+            Max_offset = self.conf['blindsearch']['maxoffset'] * u.Unit(self.conf['simulation']['skyframeunitref'])
             positions = SkyCoord(hotspots_table['ra'], hotspots_table['dec'], unit=u.deg, frame=self.conf['simulation']['skyframeref'])
             offset_mask = [position.separation(Pointing) > Max_offset for position in positions]
             hotspots_table.remove_rows(offset_mask)
@@ -397,68 +396,85 @@ class GAnalysis():
 
     def run_aperture_photometry(self, dataset, target_dict, target_name, event_list, method="reflection"):
         # 1 - Define the ON Region, Compute and store ON Counts info.
-        target_position = SkyCoord(target_dict['ra'], target_dict['dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
+        target_position = SkyCoord(target_dict['ra'], target_dict['dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['skyframeunitref'])
         on_region_radius = Angle(target_dict['rad'], unit=u.deg)
         on_region = CircleSkyRegion(target_position, on_region_radius)
         
         # 2 - Define the Pointing and compute the Target-Pointing distance
-        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['point_unit'])
+        pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['skyframeunitref'])
         distance_pointing_target = target_position.separation(pointing)
 
         # 3 - Extract Counts, Exposure, Edisp, IRF background in the ON region.
         # Correct for PSF only if IRFs are available.
         containment_correction = self.conf['execute']['reducedirfdir'] is not None
         spectrum_dataset = dataset.to_spectrum_dataset(on_region, containment_correction=containment_correction, name=target_name)
-        # 4 - Define Algorithm to compute OFF Regions        
-        if method == "reflection":
-            # We want to exclude regions too close to ON regions due to source contamination.
-            # Let's compute the plain angle spanned by the On region wrt Pointing direction
-            radii_ratio = (on_region_radius / distance_pointing_target).to('')
-            region_aperture_angle = np.arccos(np.sqrt(1-np.power(radii_ratio,2)))
-            off_regions_finder = ReflectedRegionsFinder(min_distance_input = 2.0*region_aperture_angle, binsz=self.conf['execute']['pixel_size'] * u.deg)
-        else:
-            raise ValueError("Methods to find OFF regions must be \'reflection\'.")
-        refl_bkg_maker = ReflectedRegionsBackgroundMaker(region_finder=off_regions_finder)
-
-        # 5 - Compute the OFF Regions: Counts are taken from the Event List
-        obs = Observation(events=event_list)
-        spectrum_dataset_OnOff = refl_bkg_maker.run(spectrum_dataset, obs)
         
-        # Extract Info from SpectrumDatasetOnOff
-        infodict = spectrum_dataset_OnOff.info_dict()
-        effective_area_mean = 0.0 # TODO: COMPUTE MEAN EFFECTIVE AREA
-        stats = {'counts'    : infodict['counts'],
-                 'counts_off': infodict['counts_off'],
-                 'excess'    : infodict['excess'],
-                 'alpha'     : infodict['alpha'],
-                 'sigma'     : infodict['sqrt_ts'],
-                 'livetime'  : infodict['livetime'].to('s').value,
-                 'aeff_mean' : effective_area_mean  
-                 }
-        
-        # 6 - Write Off regions
-        off_regions, off_wcs = refl_bkg_maker.region_finder.run(center=obs.pointing_radec, region=on_region)
-        Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)
-        
-        # 7 - Plot Counts Map and Mask
-        if self.conf['execute']['makemap']:
-            # Plot On and Off Regions in the Counts Map if requested 
-            if self.conf['execute']['mapreg']:
-                # Pointing-Target circle
-                hotspots = [CircleSkyRegion(pointing, distance_pointing_target, meta={'color':'white'})]
-                # Off Regions
-                for off_region in off_regions:
-                    off_region.meta = {'color':'white'}
-                hotspots+=off_regions
-                # On Region
-                hotspots.append(CircleSkyRegion(on_region.center, on_region.radius, meta={'color':'green'}))
+        try:      
+            # 4 - Define Algorithm to compute OFF Regions  
+            if method == "reflection":
+                # We want to exclude regions too close to ON regions due to source contamination.
+                # Let's compute the plain angle spanned by the On region wrt Pointing direction
+                radii_ratio = (on_region_radius / distance_pointing_target).to('')
+                region_aperture_angle = np.arccos(np.sqrt(1-np.power(radii_ratio,2)))
+                off_regions_finder = ReflectedRegionsFinder(min_distance_input = 2.0*region_aperture_angle, binsz=self.conf['execute']['pixel_size'] * u.deg)
             else:
-                hotspots=None
+                raise ValueError("Methods to find OFF regions must be \'reflection\'.")
+            refl_bkg_maker = ReflectedRegionsBackgroundMaker(region_finder=off_regions_finder) 
+
+            # 5 - Write Off regions
+            off_regions, off_wcs = refl_bkg_maker.region_finder.run(center=obs.pointing_radec, region=on_region)
+            if off_regions == []:
+                raise ValueError('Cannot compute off regions.')
+            else:   
+                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)           
+
+            # 6 - Compute the OFF Regions: Counts are taken from the Event List
+            obs = Observation(events=event_list)
+            spectrum_dataset_OnOff = refl_bkg_maker.run(spectrum_dataset, obs)
             
-            # Zoom of the Aperture Photometry Region
-            cutout = dataset.cutout(pointing, width=2.0*self.conf['execute']['maproi'] * u.Unit(self.conf['skyframeunitref']))
-            # Plot
-            self.plot_Wcs2DMap(cutout.counts, f"sky1", gti=cutout.gti, stretch='sqrt', hotspots=hotspots, mask=cutout.mask_safe_image)
+            # Extract Info from SpectrumDatasetOnOff
+            infodict = spectrum_dataset_OnOff.info_dict()
+            effective_area_mean = 0.0 # TODO: COMPUTE MEAN EFFECTIVE AREA
+            stats = {'counts'    : infodict['counts'],
+                    'counts_off' : infodict['counts_off'],
+                    'excess'     : infodict['excess'],
+                    'alpha'      : infodict['alpha'],
+                    'sigma'      : infodict['sqrt_ts'],
+                    'livetime'   : infodict['livetime'].to('s').value,
+                    'aeff_mean'  : effective_area_mean  
+                    }
+
+            # 7 - Plot Counts Map and Mask
+            if self.conf['execute']['makemap']:
+                # Plot On and Off Regions in the Counts Map if requested 
+                if self.conf['execute']['mapreg']:
+                    # Pointing-Target circle
+                    hotspots = [CircleSkyRegion(pointing, distance_pointing_target, meta={'color':'white'})]
+                    # Off Regions
+                    for off_region in off_regions:
+                        off_region.meta = {'color':'white'}
+                    hotspots+=off_regions
+                    # On Region
+                    hotspots.append(CircleSkyRegion(on_region.center, on_region.radius, meta={'color':'green'}))
+                else:
+                    hotspots=None
+                
+                # Zoom of the Aperture Photometry Region
+                cutout = dataset.cutout(pointing, width=2.0*self.conf['execute']['maproi'] * u.Unit(self.conf['simulation']['skyframeunitref']))
+                # Plot
+                self.plot_Wcs2DMap(cutout.counts, f"sky1", gti=cutout.gti, stretch='sqrt', hotspots=hotspots, mask=cutout.mask_safe_image)
+
+        except:
+            spectrum_dataset_OnOff = None
+            stats = {'counts'    : np.nan,
+                    'counts_off' : np.nan,
+                    'excess'     : np.nan,
+                    'alpha'      : np.inf,
+                    'sigma'      : np.nan,
+                    'livetime'   : np.nan,
+                    'aeff_mean'  : np.nan  
+                    }
+            
         return spectrum_dataset_OnOff, stats
 
     def execute_dl3_dl4_reduction(self):
