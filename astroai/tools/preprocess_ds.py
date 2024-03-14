@@ -7,7 +7,6 @@
 # *****************************************************************************
 
 import argparse
-from os import system
 from os.path import join, dirname
 from astroai.tools.utils import load_yaml_conf, process_dataset, process_regressor_dataset
 
