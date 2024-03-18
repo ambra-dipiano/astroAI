@@ -388,10 +388,11 @@ class GAnalysis():
         else:
             raise NotImplementedError('Currently only the "first" method is available.')
         
-        # Write selected source as a DS9 region file. Create job directory if it does not exist
-        os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
-        regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simulation']['skyframeref']), OnOffRegionRadius)
-        regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)        
+        if self.conf['execution']['mapreg']:
+            # Write selected source as a DS9 region file. Create job directory if it does not exist
+            os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
+            regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simulation']['skyframeref']), OnOffRegionRadius)
+            regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)        
         return target_ra, target_dec
 
     def run_aperture_photometry(self, dataset, target_dict, target_name, event_list, method="reflection"):
@@ -426,7 +427,7 @@ class GAnalysis():
             if off_regions == []:
                 raise ValueError('Cannot compute off regions.')
             else:   
-                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], f"{conf['simulation']['id']}_candidates.reg"), overwrite=True)           
+                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.reg"), overwrite=True)           
 
             # 6 - Compute the OFF Regions: Counts are taken from the Event List
             obs = Observation(events=event_list)
