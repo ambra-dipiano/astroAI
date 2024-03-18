@@ -9,6 +9,7 @@ checkpoints
 *.out
 *.sh
 *.ll
+!conf/template*yml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
