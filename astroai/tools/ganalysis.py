@@ -426,7 +426,7 @@ class GAnalysis():
             if off_regions == []:
                 raise ValueError('Cannot compute off regions.')
             else:   
-                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)           
+                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], f"{conf['simulation']['id']}_candidates.reg"), overwrite=True)           
 
             # 6 - Compute the OFF Regions: Counts are taken from the Event List
             obs = Observation(events=event_list)
