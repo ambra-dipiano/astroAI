@@ -13,7 +13,7 @@ import pandas as pd
 from tqdm import tqdm
 from os import makedirs
 from os.path import join, dirname
-from astroai.tools.utils import load_yaml_conf, get_irf_name
+from astroai.tools.utils import load_yaml_conf, get_irf_name, select_random_irf
 from astroai.tools.ganalysis import GAnalysis
 
 with warnings.catch_warnings():
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
-    results = open(join(conf['execute']['outdir'], 'results.txt'), 'w+')
+    results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
     results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma\n')
 
     # cicle every seed in samples
@@ -61,7 +61,10 @@ if __name__ == '__main__':
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
         if '/data/cta' not in conf['simulation']['caldb_path']:
             conf['simulation']['caldb_path'] += '/data/cta'
-        conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
+        if conf['simulation']['irf'] == 'random':
+            conf['simulation']['irf'] = select_random_irf(caldb_path=conf['simulation']['caldb_path'], prod=conf['simulation']['caldb'])
+        else:
+            conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
 
         # setup coordinates
         true = {'ra': row['source_dec'].values[0], 'dec': row['source_dec'].values[0], 'rad': conf['photometry']['onoff_radius']}
