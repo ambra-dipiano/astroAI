@@ -7,12 +7,13 @@
 # *****************************************************************************
 
 import yaml
+import random
 import numpy as np
 import pandas as pd
 import astropy.units as u
 import matplotlib.pyplot as plt
 from os import listdir, system
-from os.path import join, isfile, basename
+from os.path import join, isfile, basename, expandvars
 from datetime import datetime
 from astropy.time import Time
 from astropy.wcs import WCS
@@ -513,3 +514,17 @@ def get_irf_name(irf, caldb_path):
     s = irf.split(sep='_')
     irf = [f for f in listdir(caldb_path) if all(word in f for word in s) and 'MST' not in f][0]
     return join(caldb_path, irf.replace('.fits', ''))
+
+def set_irf(configuration, log):
+    if configuration['simulation']['irf'] == 'random':
+        irf = select_random_irf(configuration['array'], configuration['prod'])
+        log.info(f"Randomising instrument response function [{irf}]")
+    else:
+        irf = configuration['irf']
+    return irf
+
+def select_random_irf(caldb_path, prod, array='LST'):
+    path = join(caldb_path, f'{prod}')
+    irfs = listdir(path)
+    irf = random.choice([i for i in irfs if array in i and '1800s' in i and 'MST' not in i])
+    return irf
