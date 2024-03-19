@@ -10,7 +10,6 @@
 import warnings
 import argparse
 import pandas as pd
-from tqdm import tqdm
 from os import makedirs
 from os.path import join, dirname
 from astroai.tools.utils import load_yaml_conf, get_irf_name, select_random_irf
@@ -49,7 +48,7 @@ if __name__ == '__main__':
     results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma\n')
 
     # cicle every seed in samples
-    for i in tqdm(range(conf['samples'])):
+    for i in range(conf['samples']):
         # get seed
         seed = i + 1 + conf['start_seed']
         conf['simulation']['id'] = seed
