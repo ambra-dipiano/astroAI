@@ -45,8 +45,8 @@ if __name__ == '__main__':
 
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
-    results = open(join(conf['execute']['outdir'], 'results.txt'), 'w+')
-    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma')
+    results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
+    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma\n')
 
     # cicle every seed in samples
     for i in tqdm(range(conf['samples'])):
@@ -65,11 +65,12 @@ if __name__ == '__main__':
 
         # setup coordinates
         true = {'ra': row['source_dec'].values[0], 'dec': row['source_dec'].values[0], 'rad': conf['photometry']['onoff_radius']}
-        candidate = {'ra': None, 'dec': None, 'rad': conf['photometry']['onoff_radius']}
+        candidate_init = {'ra': None, 'dec': None, 'rad': conf['photometry']['onoff_radius']}
 
         # run pipeline
-        stats, candidate = run_gammapy_pipeline(conf=conf, dl3_file=dl3, target_name=f"crab_{seed:05d}", target_dict=candidate)
-        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']}")
+        stats, candidate = run_gammapy_pipeline(conf=conf, dl3_file=dl3, target_name=f"crab_{seed:05d}", target_dict=candidate_init)
+        #print(candidate)
+        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']}\n")
 
     results.close()
 
