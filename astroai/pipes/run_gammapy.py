@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
-    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma\n')
+    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma correct_irf selected_irf\n')
 
     # cicle every seed in samples
     for i in range(conf['samples']):
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         # run pipeline
         stats, candidate = run_gammapy_pipeline(conf=conf, dl3_file=dl3, target_name=f"crab_{seed:05d}", target_dict=candidate_init)
         print(candidate)
-        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']}\n")
+        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {row['irf'].values[0]} {conf['simulation']['irf']}\n")
 
     results.close()
 
