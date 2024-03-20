@@ -197,8 +197,10 @@ def main(configuration):
     conf = load_yaml_conf(configuration)
     filename = join(conf['cnn']['directory'], conf['cnn']['dataset'])
     mode = conf['cnn']['mode']
-    if isfile(filename):
+    if isfile(filename) and '.npy' in filename:
         ds = load_dataset_npy(filename)
+    elif isfile(filename) and '.pickle' in filename:
+        with open(filename,'rb') as f: ds = pickle.load(f)
     else:
         raise FileNotFoundError(filename)
 
