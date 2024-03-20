@@ -8,6 +8,7 @@
 
 import yaml
 import random
+import pickle
 import numpy as np
 import pandas as pd
 import astropy.units as u
@@ -201,8 +202,14 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, infotable, saveas, trang
     # save processed dataset
     if save and output is not None:
         filename = join(output, saveas)
-        np.save(filename, datasets, allow_pickle=True, fix_imports=True)
-        system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        if '.npy' in filename:
+            np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+            system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        elif '.pickle' in filename:
+            with open(filename,'wb') as f: pickle.dump(datasets, f, protocol=4)
+            system(f"cp {infotable} {filename.replace('.pickle', '.dat')}")
+        else:
+            raise Exception('File must be saved as pickle or numpy')
         print(f"Process complete: {filename}")
     return datasets
 
@@ -287,8 +294,14 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
     # save processed dataset
     if save and output is not None:
         filename = join(output, saveas)
-        np.save(filename, datasets, allow_pickle=True, fix_imports=True)
-        system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        if '.npy' in filename:
+            np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+            system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        elif '.pickle' in filename:
+            with open(filename,'wb') as f: pickle.dump(datasets, f, protocol=4)
+            system(f"cp {infotable} {filename.replace('.pickle', '.dat')}")
+        else:
+            raise Exception('File must be saved as pickle or numpy')
         print(f"Process complete: {filename}")
     return datasets
 
