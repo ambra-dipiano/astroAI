@@ -58,12 +58,14 @@ if __name__ == '__main__':
         dl3 = join(conf['simulation']['directory'], f'crab_{seed:05d}.fits')
         conf['simulation']['point_ra'] = row['point_ra'].values[0]
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
+        print(f"Original IRF: {row['irf'].values[0]}")
         if '/data/cta' not in conf['simulation']['caldb_path']:
             conf['simulation']['caldb_path'] += '/data/cta'
         if conf['simulation']['irf'] == 'random':
             conf['simulation']['irf'] = select_random_irf(caldb_path=conf['simulation']['caldb_path'], prod=conf['simulation']['caldb'])
         else:
             conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
+        print(f"Selected IRF: {conf['simulation']['irf']}")
 
         # setup coordinates
         true = {'ra': row['source_dec'].values[0], 'dec': row['source_dec'].values[0], 'rad': conf['photometry']['onoff_radius']}
