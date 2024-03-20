@@ -8,22 +8,25 @@
 # *******************************************************************************
 
 import argparse
-from os import system
+from os import system, makedirs
 from os.path import abspath, join, expandvars, dirname
 
 def main(script, filename):
     job_name = f'{script}'
     script = f'{script}'
+    slurmpath = join(dirname(abspath(__file__)), 'slurms')
+    makedirs(slurmpath, exist_ok=True)
+
     # write bash
-    sh_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.sh')
+    sh_outname = join(slurmpath, f'{job_name}.sh')
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
         f.write(f"\nsource {join(expandvars('$HOME'), 'venvs/astroai/bin/activate')}")
         f.write(f"\n\tpython {join(dirname(abspath(__file__)), script)}.py -f {filename}\n")
 
     # write job
-    job_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.ll')
-    job_outlog = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.log')
+    job_outname = join(slurmpath, f'{job_name}.ll')
+    job_outlog = join(slurmpath, f'{job_name}.log')
     with open(job_outname, 'w+') as f:
         f.write('#!/bin/bash')
         f.write(f'\n\n#SBATCH --job-name={job_name}')
