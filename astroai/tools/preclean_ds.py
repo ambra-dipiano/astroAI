@@ -9,6 +9,7 @@
 import argparse
 import numpy as np
 import tensorflow as tf
+from os import listdir
 from os.path import join, abspath, dirname
 from astroai.tools.utils import load_yaml_conf
 
@@ -35,9 +36,11 @@ def main(configuration, model):
     clean_regressor_dataset(ds_dataset_path, model)
 
 if __name__ == '__main__':
+    models = [f.replace('.keras', '') for f in listdir('../models/cnn_cleaner') if 'history' not in f]
+
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
-    parser.add_argument('-m', '--model', type=str, required=True, choices=['cleaner_200x200_filter12_2kp', 'cleaner_200x200_filter6_500p', 'cleaner_200x200_filter2_70p'], help='CNN-cleaner model to use for background subtraction')
+    parser.add_argument('-m', '--model', type=str, required=True, choices=models, help='CNN-cleaner model to use for background subtraction')
     args = parser.parse_args()
 
     main(args.configuration, args.model)
