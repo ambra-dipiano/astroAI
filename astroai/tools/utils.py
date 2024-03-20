@@ -498,7 +498,9 @@ def convert_fk5_to_gal(ra, dec):
 
 def get_irf_file(caldb, irf, caldb_path):
     if caldb in ['prod5-v0.1', 'prod5']:
-        irf_file = str(join(caldb_path, caldb, irf + '.fits'))
+        irf_file = str(join(caldb_path, caldb, irf))
+        if '.fits' not in irf_file:
+            irf_file += '.fits'
     elif caldb in ['prod3b-v2']:
         irf_file = str(join(caldb_path, caldb, "bcf", irf, "irf_file.fits"))
     else:
