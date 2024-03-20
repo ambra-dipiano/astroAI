@@ -172,18 +172,19 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, infotable, saveas, trang
                         heatmap = h[0].data
 
             # normalise map
+            normalisation[k].append((np.min(heatmap), np.max(heatmap)))
             if norm_value == 1 and stretch:
                 heatmap = stretch_smooth(heatmap, smoothing)
-                normalisation[k].append((np.mean(heatmap)-(smoothing*np.std(heatmap)), np.mean(heatmap)+(smoothing*np.std(heatmap))))
+                #normalisation[k].append((np.mean(heatmap)-(smoothing*np.std(heatmap)), np.mean(heatmap)+(smoothing*np.std(heatmap))))
             elif norm_value == 1 and not stretch:
                 heatmap = normalise_heatmap(heatmap)
-                normalisation[k].append(np.array(np.min(heatmap), np.max(heatmap)))
+                #normalisation[k].append(np.array(np.min(heatmap), np.max(heatmap)))
             elif type(norm_value) == float and stretch:
                 heatmap = stretch_min_max(heatmap, vmax=norm_value)
-                normalisation[k].append(0, np.array(np.max(heatmap), norm_value))
+                #normalisation[k].append(0, np.array(np.max(heatmap), norm_value))
             elif type(norm_value) == float and not stretch:
                 heatmap = normalise_dataset(heatmap, max_value=norm_value)
-                normalisation[k].append(0, norm_value)
+                #normalisation[k].append(0, norm_value)
             else:
                 pass
 
@@ -283,8 +284,9 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
             heatmap.reshape(binning, binning)
 
         # append to ds
-        datasets['DS'].append(heatmap)
-        datasets['LABELS'].append((y,x))
+        #datasets['DS'].append(heatmap)
+        datasets['DS'].append(np.fliplr(heatmap))
+        datasets['LABELS'].append((x, y))
 
     # convert to numpy array
     datasets['DS'] = np.array(datasets['DS'])
