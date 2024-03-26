@@ -7,12 +7,14 @@
 # *****************************************************************************
 
 import yaml
+import random
+import pickle
 import numpy as np
 import pandas as pd
 import astropy.units as u
 import matplotlib.pyplot as plt
 from os import listdir, system
-from os.path import join, isfile, basename
+from os.path import join, isfile, basename, expandvars
 from datetime import datetime
 from astropy.time import Time
 from astropy.wcs import WCS
@@ -170,18 +172,19 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, infotable, saveas, trang
                         heatmap = h[0].data
 
             # normalise map
+            normalisation[k].append((np.min(heatmap), np.max(heatmap)))
             if norm_value == 1 and stretch:
                 heatmap = stretch_smooth(heatmap, smoothing)
-                normalisation[k].append((np.mean(heatmap)-(smoothing*np.std(heatmap)), np.mean(heatmap)+(smoothing*np.std(heatmap))))
+                #normalisation[k].append((np.mean(heatmap)-(smoothing*np.std(heatmap)), np.mean(heatmap)+(smoothing*np.std(heatmap))))
             elif norm_value == 1 and not stretch:
                 heatmap = normalise_heatmap(heatmap)
-                normalisation[k].append(np.array(np.min(heatmap), np.max(heatmap)))
+                #normalisation[k].append(np.array(np.min(heatmap), np.max(heatmap)))
             elif type(norm_value) == float and stretch:
                 heatmap = stretch_min_max(heatmap, vmax=norm_value)
-                normalisation[k].append(0, np.array(np.max(heatmap), norm_value))
+                #normalisation[k].append(0, np.array(np.max(heatmap), norm_value))
             elif type(norm_value) == float and not stretch:
                 heatmap = normalise_dataset(heatmap, max_value=norm_value)
-                normalisation[k].append(0, norm_value)
+                #normalisation[k].append(0, norm_value)
             else:
                 pass
 
@@ -200,8 +203,14 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, infotable, saveas, trang
     # save processed dataset
     if save and output is not None:
         filename = join(output, saveas)
-        np.save(filename, datasets, allow_pickle=True, fix_imports=True)
-        system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        if '.npy' in filename:
+            np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+            system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        elif '.pickle' in filename:
+            with open(filename,'wb') as f: pickle.dump(datasets, f, protocol=4)
+            system(f"cp {infotable} {filename.replace('.pickle', '.dat')}")
+        else:
+            raise Exception('File must be saved as pickle or numpy')
         print(f"Process complete: {filename}")
     return datasets
 
@@ -275,8 +284,9 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
             heatmap.reshape(binning, binning)
 
         # append to ds
-        datasets['DS'].append(heatmap)
-        datasets['LABELS'].append((y,x))
+        #datasets['DS'].append(heatmap)
+        datasets['DS'].append(np.fliplr(heatmap))
+        datasets['LABELS'].append((x, y))
 
     # convert to numpy array
     datasets['DS'] = np.array(datasets['DS'])
@@ -286,8 +296,14 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
     # save processed dataset
     if save and output is not None:
         filename = join(output, saveas)
-        np.save(filename, datasets, allow_pickle=True, fix_imports=True)
-        system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        if '.npy' in filename:
+            np.save(filename, datasets, allow_pickle=True, fix_imports=True)
+            system(f"cp {infotable} {filename.replace('.npy', '.dat')}")
+        elif '.pickle' in filename:
+            with open(filename,'wb') as f: pickle.dump(datasets, f, protocol=4)
+            system(f"cp {infotable} {filename.replace('.pickle', '.dat')}")
+        else:
+            raise Exception('File must be saved as pickle or numpy')
         print(f"Process complete: {filename}")
     return datasets
 
@@ -497,7 +513,9 @@ def convert_fk5_to_gal(ra, dec):
 
 def get_irf_file(caldb, irf, caldb_path):
     if caldb in ['prod5-v0.1', 'prod5']:
-        irf_file = str(join(caldb_path, caldb, irf + '.fits'))
+        irf_file = str(join(caldb_path, caldb, irf))
+        if '.fits' not in irf_file:
+            irf_file += '.fits'
     elif caldb in ['prod3b-v2']:
         irf_file = str(join(caldb_path, caldb, "bcf", irf, "irf_file.fits"))
     else:
@@ -507,12 +525,23 @@ def get_irf_file(caldb, irf, caldb_path):
     return irf_file
 
 def get_irf_name(irf, caldb_path):
-    print(f'Input IRF: {irf}')
     irf = irf.replace('0.5h', '1800s').replace('5h', '18000s').replace('50h', '180000s')
     irf = irf.replace('z20', '20deg').replace('z40', '40deg').replace('z60', '60deg')
     irf = irf.replace('_N_', '_NorthAz_').replace('_S_', '_SouthAz_')
     s = irf.split(sep='_')
-    print(f'Search: {s}')
     irf = [f for f in listdir(caldb_path) if all(word in f for word in s) and 'MST' not in f][0]
-    print(f'Output IRF: {irf}')
     return join(caldb_path, irf.replace('.fits', ''))
+
+def set_irf(configuration, log):
+    if configuration['simulation']['irf'] == 'random':
+        irf = select_random_irf(configuration['array'], configuration['prod'])
+        log.info(f"Randomising instrument response function [{irf}]")
+    else:
+        irf = configuration['irf']
+    return irf
+
+def select_random_irf(caldb_path, prod, array='LST'):
+    path = join(caldb_path, f'{prod}')
+    irfs = listdir(path)
+    irf = random.choice([i for i in irfs if array in i and '1800s' in i and 'MST' not in i])
+    return irf

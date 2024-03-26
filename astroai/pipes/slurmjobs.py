@@ -8,22 +8,25 @@
 # *******************************************************************************
 
 import argparse
-from os import system
+from os import system, makedirs
 from os.path import abspath, join, expandvars, dirname
 
-def main(script, filename):
-    job_name = f'{script}'
-    script = f'{script}'
+def main(pipe, filename):
+    job_name = f'{pipe}'
+    pipe = f'{pipe}'
     # write bash
-    sh_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.sh')
+    outdir = join(dirname(abspath(__file__)), 'slurms')
+    sh_outname = join(outdir, f'{job_name}.sh')
+    makedirs(outdir, exist_ok=True)
+
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
         f.write(f"\nsource {join(expandvars('$HOME'), 'venvs/astroai/bin/activate')}")
-        f.write(f"\n\tpython {join(dirname(abspath(__file__)), script)}.py -f {filename}\n")
+        f.write(f"\n\tpython {join(dirname(abspath(__file__)), pipe)}.py -f {filename}\n")
 
     # write job
-    job_outname = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.ll')
-    job_outlog = join(dirname(abspath(__file__)), 'slurms', f'{job_name}.log')
+    job_outname = join(outdir, f'{job_name}.ll')
+    job_outlog = join(outdir, f'{job_name}.log')
     with open(job_outname, 'w+') as f:
         f.write('#!/bin/bash')
         f.write(f'\n\n#SBATCH --job-name={job_name}')
@@ -37,10 +40,10 @@ def main(script, filename):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--script', type=str, required=True, choices=['preprocess_ds', 'normalise_ds', 'load_and_normalise_maps'], help='Script to submit')
+    parser.add_argument('-p', '--pipe', type=str, required=True, choices=['gammapy', 'cnn'], help='Pipeline to submit')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
     args = parser.parse_args()
 
-    main(args.script, args.filename)
+    main(f'run_{args.pipe}', args.filename)
 
 

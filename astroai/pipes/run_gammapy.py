@@ -10,10 +10,9 @@
 import warnings
 import argparse
 import pandas as pd
-from tqdm import tqdm
 from os import makedirs
 from os.path import join, dirname
-from astroai.tools.utils import load_yaml_conf, get_irf_name
+from astroai.tools.utils import load_yaml_conf, get_irf_name, select_random_irf
 from astroai.tools.ganalysis import GAnalysis
 
 with warnings.catch_warnings():
@@ -46,10 +45,10 @@ if __name__ == '__main__':
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
-    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma\n')
+    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma correct_irf selected_irf\n')
 
     # cicle every seed in samples
-    for i in tqdm(range(conf['samples'])):
+    for i in range(conf['samples']):
         # get seed
         seed = i + 1 + conf['start_seed']
         conf['simulation']['id'] = seed
@@ -59,9 +58,14 @@ if __name__ == '__main__':
         dl3 = join(conf['simulation']['directory'], f'crab_{seed:05d}.fits')
         conf['simulation']['point_ra'] = row['point_ra'].values[0]
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
+        print(f"Original IRF: {row['irf'].values[0]}")
         if '/data/cta' not in conf['simulation']['caldb_path']:
             conf['simulation']['caldb_path'] += '/data/cta'
-        conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
+        if conf['simulation']['irf'] == 'random':
+            conf['simulation']['irf'] = select_random_irf(caldb_path=conf['simulation']['caldb_path'], prod=conf['simulation']['caldb'])
+        else:
+            conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
+        print(f"Selected IRF: {conf['simulation']['irf']}")
 
         # setup coordinates
         true = {'ra': row['source_dec'].values[0], 'dec': row['source_dec'].values[0], 'rad': conf['photometry']['onoff_radius']}
@@ -70,8 +74,7 @@ if __name__ == '__main__':
         # run pipeline
         stats, candidate = run_gammapy_pipeline(conf=conf, dl3_file=dl3, target_name=f"crab_{seed:05d}", target_dict=candidate_init)
         print(candidate)
-        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']}\n")
+        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {row['irf'].values[0]} {conf['simulation']['irf']}\n")
 
     results.close()
-
 
