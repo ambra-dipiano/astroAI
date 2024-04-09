@@ -9,7 +9,7 @@ checkpoints
 *.out
 *.sh
 *.ll
-*FINAL*
+*regressor*1e4*z20*
 !conf/template*yml
 
 # Byte-compiled / optimized / DLL files
