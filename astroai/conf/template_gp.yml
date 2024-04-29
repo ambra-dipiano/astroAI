@@ -1,0 +1,55 @@
+samples:       
+start_seed: 
+
+simulation:
+  directory: 
+  datfile: 
+  id: 
+  caldb: 
+  irf: 
+  caldb_path: 
+  point_ra:
+  point_dec:
+  skyframeref: 
+  skyframeunitref: 
+  timesys: 
+  timeref: 
+  timeunit: 
+
+selection:
+  emin: 
+  emax: 
+  energy_bins_per_decade: 
+  roi_ringrad: 
+  tmin:
+  tmax: 
+
+execute:
+  pixel_size: 
+  exclusion: 
+  outdir: 
+  reducedirfdir:
+  savefits: 
+  plotfullfov: 
+  plotirfs: 
+  plotts: 
+  makemap: 
+  mapreg: 
+  maproi: 
+  computeph: 
+  blindsearch: 
+
+logging:
+  loglevel: 
+  logfile: 
+
+photometry:
+  onoff_radius: 
+  onoff_method: 
+
+blindsearch:
+  sigmathresh: 
+  maxoffset: 
+  maxsrc: 
+  plotzoom: 
+  corr_rad: 

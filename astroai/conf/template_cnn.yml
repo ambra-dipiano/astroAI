@@ -1,0 +1,37 @@
+# PREPROCESS CONFIGURATION
+preprocess:
+  directory:            # path to data directory
+  infotable:            # name of infotable in data directory
+  sample:               # number of total samples
+  time_start:           # time start of observation
+  time_stop:            # time stop of observation
+  binning:              # map binning 
+  smoothing:            # Gaussian smoothing kernel
+  mode:                 # pipeline mode: clean, localise
+  norm_value:           # 1 = single map normalisation; 0 = no normalisation; float = dataset overall normalisation value
+  stretch:              # add stretch to normalisation; 
+  saveas:               # name of dataset to save
+
+# CNN CONFIGURATION
+cnn:                    
+  directory:            # path to dataset directory
+  dataset:              # dataset name
+  saveas:               # name of model to save
+  mode:                 # CNN modality: clean, localise
+  reshape:              # reshape input
+  split:                # slipt ratio (train percentage)
+  batch_sz:             # training batch size
+  epochs:               # training epochs
+  learning:             # model learning rate
+  shuffle:              # training with shuffle
+  layers:               
+    # CLEANER AND REGRESSOR LAYERS 
+    conv_filter:        # Conv2D filter
+    conv_kernel:        # Conv2D kernel
+    sampling_kernel:    # AvgPool kernel
+    # REGRESSOR LAYERS ONLY
+    number_convs:       # Number of Conv2D layers after the 1st one
+    dropout:            # Dropout rate
+    dense:              # Dense layer size
+    
+  
