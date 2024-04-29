@@ -53,7 +53,7 @@ To run this code you are required to provide DL3 simulations in a compatible FIT
 ## Using this code
 
 - You can preprocess data using the instructions in the dedicated [README](./astroai/tools/README.md).
-- You can train models anew following the instructions in the dedicated [README]([./astroai/models/README.md) or use the provided [cnn_models_v1](https://zenodo.org/).
+- You can train models anew following the instructions in the dedicated [README](./astroai/models/README.md) or use the provided [cnn_models_v1](https://zenodo.org/).
 - You can compare the resuts with the reference real-time analysis pipeline following the instructions in the dedicated [README](./astroai/pipes/README.md).
 
 ## Configurations
