@@ -4,6 +4,10 @@ logs
 img
 conf
 checkpoints
+crta_models
+cnn_cleaner
+cnn_regressor
+slurms
 
 # files
 *.out
