@@ -10,7 +10,7 @@ import argparse
 import tensorflow as tf
 from os.path import join, isfile
 from astroai.tools.utils import *
-TF_CPP_MIN_LOG_LEVEL="1"
+TF_CPP_MIN_LOG_LEVEL="3"
 
 # ---- CREATE MODELS -----
 
