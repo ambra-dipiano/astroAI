@@ -14,19 +14,19 @@ cd astroAI
 
 ## Environment
 
-This software uses `venv` virtual environment. You are free to use a different solution but requirements compatibility is not guaranteed. 
+This software uses [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html) for managing environments. You are free to use a different solution though compatibility is not guaranteed. Once you have installed and activated `mamba` you can proceed with creating the environment.
 
 Step1: 
 ```bash 
-python -m venv astroai
+mamba create -n astroai
 ```
 Step2: 
 ```bash
-source astroai/bin/activate
+mamba activate astroai
 ```
 Step3:
 ```bash
-python -m pip install -r requirements.txt
+mamba install -f environment.yml
 ```
 
 ## Installation
