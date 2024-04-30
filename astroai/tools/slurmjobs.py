@@ -21,7 +21,7 @@ def main(script, filename):
     sh_outname = join(slurmpath, f'{job_name}.sh')
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
-        f.write(f"\nsource {join(expandvars('$HOME'), 'venvs/astroai/bin/activate')}")
+        f.write(f"\mamba activate astroai")
         f.write(f"\n\tpython {join(dirname(abspath(__file__)), script)}.py -f {filename}\n")
 
     # write job
