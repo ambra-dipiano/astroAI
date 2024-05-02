@@ -8,6 +8,7 @@ crta_models
 cnn_cleaner
 cnn_regressor
 slurms
+tutorial_data
 
 # files
 *.out
