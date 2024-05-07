@@ -4,13 +4,20 @@ logs
 img
 conf
 checkpoints
+crta_models
+cnn_cleaner
+cnn_regressor
+slurms
+tutorial_data
 
 # files
 *.out
 *.sh
 *.ll
+*.zip
 *regressor*1e4*z20*
-!conf/template*yml
+!/astroai/conf/template_cnn.yml
+!astroai/conf/template_gp.yml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

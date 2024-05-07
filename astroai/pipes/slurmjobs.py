@@ -21,7 +21,7 @@ def main(pipe, filename):
 
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
-        f.write(f"\nsource {join(expandvars('$HOME'), 'venvs/astroai/bin/activate')}")
+        f.write(f"\mamba activate astroai")
         f.write(f"\n\tpython {join(dirname(abspath(__file__)), pipe)}.py -f {filename}\n")
 
     # write job

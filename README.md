@@ -14,19 +14,19 @@ cd astroAI
 
 ## Environment
 
-This software uses `venv` virtual environment. You are free to use a different solution but requirements compatibility is not guaranteed. 
+This software uses [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html) for managing environments. You are free to use a different solution though compatibility is not guaranteed. Once you have installed and activated `mamba` you can proceed with creating the environment.
 
 Step1: 
 ```bash 
-python -m venv astroai
+mamba create -n astroai
 ```
 Step2: 
 ```bash
-source astroai/bin/activate
+mamba activate astroai
 ```
 Step3:
 ```bash
-python -m pip install -r requirements.txt
+mamba install -f environment.yml
 ```
 
 ## Installation
@@ -43,26 +43,20 @@ Alternatively you may install in editable mode.
 pip install -e .
 ```
 
-## Configuration file
-How to configure the software.
+## Datasets
 
-## Preprocessing pipeline
-A single pipeline to manage preprocessing for all different tools.
+To run this code you are required to provide DL3 simulations in a compatible FITS format:
+- simulation with gammapy
+- simulation with ctools
+- provided sample datasets [simulations_dataset_v1](https://zenodo.org/)
 
-## Models
-An ensamble of deep learning models, with different architctures and goals.
+## Using this code
 
-### CNN-based models
-A collection of CNN-based models providing a number of different tools for high level analysis.
+- You can preprocess data using the instructions in the dedicated [README](./astroai/tools/README.md).
+- You can train models anew following the instructions in the dedicated [README](./astroai/models/README.md) or use the provided [cnn_models_v1](https://zenodo.org/).
+- You can compare the resuts with the reference real-time analysis pipeline following the instructions in the dedicated [README](./astroai/pipes/README.md).
 
-#### Binary classifier
-This model aims to classifying counts maps containing only background signal (class 0) and counts maps containing source and background signal.
+## Configurations
 
-#### Image cleaner
-This model aims to remove background noise from a counts map.
-
-#### Hotspots regressor
-This model aims to localise the coordinates of hotspots in a counts maps, whereas the hotspots have a given minimum Gaussian significance.
-
-#### Background classifier
-This model aims to classify various levels of background in a counts map, in order to associate the most appropriate Instrument Response Function.
+- A commented configuration template for preprocessing and model training is provided here: [template_cnn.yml](./astroai/conf/template_cnn.yml).
+- A commented configuration template to execute the reference rtal-time analysis pipeline is provided here: [template_gp.yml](./astroai/conf/template_gp.yml).

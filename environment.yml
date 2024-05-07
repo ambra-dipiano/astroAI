@@ -1,0 +1,14 @@
+name: astroai
+
+channels:
+  - conda-forge
+  - main
+
+dependencies:
+  - gammapy
+  - tensorflow
+  - tensorboard
+  - jupyter
+  - ipykernel
+  - pandas
+  - tqdm

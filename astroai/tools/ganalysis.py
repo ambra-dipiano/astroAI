@@ -31,7 +31,7 @@ from gammapy.data import EventList, GTI, Observation
 from gammapy.datasets import MapDataset
 from gammapy.estimators import ExcessMapEstimator
 from gammapy.estimators.utils import find_peaks
-from gammapy.irf import load_cta_irfs
+from gammapy.irf import load_irf_dict_from_file
 from gammapy.makers import  MapDatasetMaker, SafeMaskMaker, ReflectedRegionsFinder, ReflectedRegionsBackgroundMaker
 from gammapy.maps import Map, WcsGeom, MapAxis
 from astroai.tools.utils import convert_tt_to_mjd, get_irf_file
@@ -87,7 +87,7 @@ class GAnalysis():
         
     def define_observation(self):
         # 1 - Load IRFs
-        irfs = load_cta_irfs(self.conf['simulation']['irf_file'])
+        irfs = load_irf_dict_from_file(self.conf['simulation']['irf_file'])
         # 2 - Pointing. From OBS.xml
         pointing = SkyCoord(self.conf['simulation']['point_ra'], self.conf['simulation']['point_dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['skyframeunitref'])
         # 3 - Set a standard livetime through tstart and tstop.

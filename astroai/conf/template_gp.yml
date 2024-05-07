@@ -1,0 +1,62 @@
+# GENERIC CONFIGURATION
+samples:                           # number of samples
+start_seed:                        # starting seed of sample
+
+# SIMULATIONS PARAMETERS
+simulation:                        
+  directory:                       # path to data directory
+  datfile:                         # name of infotable in data directory
+  id:                              # empty to process full dataset - individual observation id to process single dl3
+  caldb:                           # name of calibration database production
+  irf:                             # name of single IRF file or 'random'
+  caldb_path:                      # path to calibration database folder "caldb"
+  point_ra:                        # empty to process full dataset - individual RA of observation pointing to process single dl3
+  point_dec:                       # empty to process full dataset - individual DEC of observation pointing to process single dl3
+  skyframeref:                     # observation sky frame, typically icrs or fk5
+  skyframeunitref:                 # observation sky frame unit, typically deg
+  timesys:                         # observation time system, typically tt
+  timeref:                         # observation time reference, typically 51544.5
+  timeunit:                        # observation time unit, typically s
+
+# DATA SELECTION OPTIONS
+selection:
+  emin:                            # minimum energy, tipycally in TeV
+  emax:                            # maximum energy, typically in TeV
+  energy_bins_per_decade:          # bins per energy decade
+  roi_ringrad:                     # radius of ROI, typically in TeV
+  tmin:                            # minimum time, tipycally in seconds
+  tmax:                            # maximum time, tipycally in seconds
+
+# EXECUTION OPTIONS
+execute:
+  pixel_size:                      # pixel size, typically in deg
+  exclusion:                       # path to regions exlusion file
+  outdir:                          # path to output directory
+  reducedirfdir:                   # path to reduced IRF (to read or create)
+  savefits:                        # option to save fits products (yes/no)
+  plotfullfov:                     # option to plot full FOV plots (yes/no)
+  plotirfs:                        # option to plot IRF (yes/no)
+  plotts:                          # option to plot TS map (yes/no)
+  makemap:                         # option to compute maps (yes/no)
+  mapreg:                          # option to save regions file (yes/no)
+  maproi:                          # map region radius, typically in deg
+  computeph:                       # option to perform aperture photometry (yes/no)
+  blindsearch:                     # option to perform blind search (yes/no)
+
+# LOGGING OPTIONS
+logging:
+  loglevel:                        # logging level: debug, info, warning, error, critical
+  logfile:                         # name of file for saving logs
+
+# PHOTOMETRY PARAMETERS
+photometry:
+  onoff_radius:                    # radius of regions, typically in deg
+  onoff_method:                    # off regions method, typically reflection
+
+# BLINDSEARCH PARAMETERS
+blindsearch:
+  sigmathresh:                     # sigma acceptance threshold
+  maxoffset:                       # maximum acceptable offset, tyically in deg
+  maxsrc:                          # maximum number of candidates
+  plotzoom:                        # option to plot a candidate zoom-in (yes/no)
+  corr_rad:                        # correlation radius

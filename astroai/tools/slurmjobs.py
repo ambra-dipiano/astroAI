@@ -21,7 +21,7 @@ def main(script, filename):
     sh_outname = join(slurmpath, f'{job_name}.sh')
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
-        f.write(f"\nsource {join(expandvars('$HOME'), 'venvs/astroai/bin/activate')}")
+        f.write(f"\mamba activate astroai")
         f.write(f"\n\tpython {join(dirname(abspath(__file__)), script)}.py -f {filename}\n")
 
     # write job
@@ -40,7 +40,7 @@ def main(script, filename):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--script', type=str, required=True, choices=['preprocess_ds', 'normalise_ds', 'load_and_normalise_maps'], help='Script to submit')
+    parser.add_argument('-s', '--script', type=str, required=True, choices=['preprocess_ds', 'normalise_ds', 'load_and_normalise_maps', 'preclean_ds'], help='Script to submit')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
     args = parser.parse_args()
 
