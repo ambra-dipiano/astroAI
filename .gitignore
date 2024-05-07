@@ -14,6 +14,7 @@ tutorial_data
 *.out
 *.sh
 *.ll
+*.zip
 *regressor*1e4*z20*
 !/astroai/conf/template_cnn.yml
 !astroai/conf/template_gp.yml
