@@ -275,7 +275,8 @@ class GAnalysis():
 
         # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
         if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
-            spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, method=self.conf['photometry']['onoff_method'])
+            print('APH!!')
+            spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
         
             # Propagate statistical errors on Excess and Li&Ma Significance
             excess_err= np.sqrt(np.power(np.sqrt(stats['counts']),2) + np.power(np.sqrt(stats['counts_off']),2))
@@ -394,7 +395,9 @@ class GAnalysis():
         regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)        
         return target_ra, target_dec
 
-    def run_aperture_photometry(self, dataset, target_dict, target_name, event_list, method="reflection"):
+    def run_aperture_photometry(self, dataset, target_dict, target_name, event_list, gti, method="reflection"):
+        obs = Observation(events=event_list, gti=gti)
+
         # 1 - Define the ON Region, Compute and store ON Counts info.
         target_position = SkyCoord(target_dict['ra'], target_dict['dec'], frame=self.conf['simulation']['skyframeref'], unit=self.conf['simulation']['skyframeunitref'])
         on_region_radius = Angle(target_dict['rad'], unit=u.deg)
@@ -409,61 +412,60 @@ class GAnalysis():
         containment_correction = self.conf['execute']['reducedirfdir'] is not None
         spectrum_dataset = dataset.to_spectrum_dataset(on_region, containment_correction=containment_correction, name=target_name)
         
-        try:      
-            # 4 - Define Algorithm to compute OFF Regions  
-            if method == "reflection":
-                # We want to exclude regions too close to ON regions due to source contamination.
-                # Let's compute the plain angle spanned by the On region wrt Pointing direction
-                radii_ratio = (on_region_radius / distance_pointing_target).to('')
-                region_aperture_angle = np.arccos(np.sqrt(1-np.power(radii_ratio,2)))
-                off_regions_finder = ReflectedRegionsFinder(min_distance_input = 2.0*region_aperture_angle, binsz=self.conf['execute']['pixel_size'] * u.deg)
+        # 4 - Define Algorithm to compute OFF Regions  
+        if method == "reflection":
+            # We want to exclude regions too close to ON regions due to source contamination.
+            # Let's compute the plain angle spanned by the On region wrt Pointing direction
+            radii_ratio = (on_region_radius / distance_pointing_target).to('')
+            region_aperture_angle = np.arccos(np.sqrt(1-np.power(radii_ratio,2)))
+            off_regions_finder = ReflectedRegionsFinder(angle_increment=2.0*region_aperture_angle, min_distance_input=2.0*region_aperture_angle, binsz=self.conf['execute']['pixel_size'] * u.deg)
+        else:
+            raise ValueError("Methods to find OFF regions must be \'reflection\'.")
+        refl_bkg_maker = ReflectedRegionsBackgroundMaker(region_finder=off_regions_finder) 
+
+        # 5 - Write Off regions
+        print(obs.pointing, '\n', on_region)
+        off_regions, off_wcs = refl_bkg_maker.region_finder.run(center=obs.pointing.fixed_icrs, region=on_region)
+        if off_regions == []:
+            raise ValueError('Cannot compute off regions.')
+        else:   
+            Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)           
+
+        # 6 - Compute the OFF Regions: Counts are taken from the Event List
+        spectrum_dataset_OnOff = refl_bkg_maker.run(spectrum_dataset, obs)
+        
+        # Extract Info from SpectrumDatasetOnOff
+        infodict = spectrum_dataset_OnOff.info_dict()
+        effective_area_mean = 0.0 # TODO: COMPUTE MEAN EFFECTIVE AREA
+        stats = {'counts'    : infodict['counts'],
+                'counts_off' : infodict['counts_off'],
+                'excess'     : infodict['excess'],
+                'alpha'      : infodict['alpha'],
+                'sigma'      : infodict['sqrt_ts'],
+                'livetime'   : infodict['livetime'].to('s').value,
+                'aeff_mean'  : effective_area_mean  
+                }
+
+        # 7 - Plot Counts Map and Mask
+        if self.conf['execute']['makemap']:
+            # Plot On and Off Regions in the Counts Map if requested 
+            if self.conf['execute']['mapreg']:
+                # Pointing-Target circle
+                hotspots = [CircleSkyRegion(pointing, distance_pointing_target, meta={'color':'white'})]
+                # Off Regions
+                for off_region in off_regions:
+                    off_region.meta = {'color':'white'}
+                hotspots+=off_regions
+                # On Region
+                hotspots.append(CircleSkyRegion(on_region.center, on_region.radius, meta={'color':'green'}))
             else:
-                raise ValueError("Methods to find OFF regions must be \'reflection\'.")
-            refl_bkg_maker = ReflectedRegionsBackgroundMaker(region_finder=off_regions_finder) 
-
-            # 5 - Write Off regions
-            off_regions, off_wcs = refl_bkg_maker.region_finder.run(center=obs.pointing_radec, region=on_region)
-            if off_regions == []:
-                raise ValueError('Cannot compute off regions.')
-            else:   
-                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)           
-
-            # 6 - Compute the OFF Regions: Counts are taken from the Event List
-            obs = Observation(events=event_list)
-            spectrum_dataset_OnOff = refl_bkg_maker.run(spectrum_dataset, obs)
+                hotspots=None
             
-            # Extract Info from SpectrumDatasetOnOff
-            infodict = spectrum_dataset_OnOff.info_dict()
-            effective_area_mean = 0.0 # TODO: COMPUTE MEAN EFFECTIVE AREA
-            stats = {'counts'    : infodict['counts'],
-                    'counts_off' : infodict['counts_off'],
-                    'excess'     : infodict['excess'],
-                    'alpha'      : infodict['alpha'],
-                    'sigma'      : infodict['sqrt_ts'],
-                    'livetime'   : infodict['livetime'].to('s').value,
-                    'aeff_mean'  : effective_area_mean  
-                    }
-
-            # 7 - Plot Counts Map and Mask
-            if self.conf['execute']['makemap']:
-                # Plot On and Off Regions in the Counts Map if requested 
-                if self.conf['execute']['mapreg']:
-                    # Pointing-Target circle
-                    hotspots = [CircleSkyRegion(pointing, distance_pointing_target, meta={'color':'white'})]
-                    # Off Regions
-                    for off_region in off_regions:
-                        off_region.meta = {'color':'white'}
-                    hotspots+=off_regions
-                    # On Region
-                    hotspots.append(CircleSkyRegion(on_region.center, on_region.radius, meta={'color':'green'}))
-                else:
-                    hotspots=None
-                
-                # Zoom of the Aperture Photometry Region
-                cutout = dataset.cutout(pointing, width=2.0*self.conf['execute']['maproi'] * u.Unit(self.conf['simulation']['skyframeunitref']))
-                # Plot
-                self.plot_Wcs2DMap(cutout.counts, f"sky1", gti=cutout.gti, stretch='sqrt', hotspots=hotspots, mask=cutout.mask_safe_image)
-
+            # Zoom of the Aperture Photometry Region
+            cutout = dataset.cutout(pointing, width=2.0*self.conf['execute']['maproi'] * u.Unit(self.conf['simulation']['skyframeunitref']))
+            # Plot
+            self.plot_Wcs2DMap(cutout.counts, f"sky1", gti=cutout.gti, stretch='sqrt', hotspots=hotspots, mask=cutout.mask_safe_image)
+        '''
         except:
             spectrum_dataset_OnOff = None
             stats = {'counts'    : np.nan,
@@ -474,7 +476,7 @@ class GAnalysis():
                     'livetime'   : np.nan,
                     'aeff_mean'  : np.nan  
                     }
-            
+        '''
         return spectrum_dataset_OnOff, stats
 
     def execute_dl3_dl4_reduction(self):
