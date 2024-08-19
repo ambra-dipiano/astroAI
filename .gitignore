@@ -9,6 +9,7 @@ cnn_cleaner
 cnn_regressor
 slurms
 tutorial_data
+data
 
 # files
 *.out
