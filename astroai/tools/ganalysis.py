@@ -275,7 +275,6 @@ class GAnalysis():
 
         # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
         if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
-            print('APH!!')
             spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
         
             # Propagate statistical errors on Excess and Li&Ma Significance
@@ -424,10 +423,19 @@ class GAnalysis():
         refl_bkg_maker = ReflectedRegionsBackgroundMaker(region_finder=off_regions_finder) 
 
         # 5 - Write Off regions
-        print(obs.pointing, '\n', on_region)
         off_regions, off_wcs = refl_bkg_maker.region_finder.run(center=obs.pointing.fixed_icrs, region=on_region)
         if off_regions == []:
-            raise ValueError('Cannot compute off regions.')
+            print('Cannot compute off regions.')
+            spectrum_dataset_OnOff = None
+            stats = {'counts'    : np.nan,
+                    'counts_off' : np.nan,
+                    'excess'     : np.nan,
+                    'alpha'      : np.inf,
+                    'sigma'      : np.nan,
+                    'livetime'   : np.nan,
+                    'aeff_mean'  : np.nan  
+                    }
+            return spectrum_dataset_OnOff, stats
         else:   
             Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)           
 
@@ -465,18 +473,6 @@ class GAnalysis():
             cutout = dataset.cutout(pointing, width=2.0*self.conf['execute']['maproi'] * u.Unit(self.conf['simulation']['skyframeunitref']))
             # Plot
             self.plot_Wcs2DMap(cutout.counts, f"sky1", gti=cutout.gti, stretch='sqrt', hotspots=hotspots, mask=cutout.mask_safe_image)
-        '''
-        except:
-            spectrum_dataset_OnOff = None
-            stats = {'counts'    : np.nan,
-                    'counts_off' : np.nan,
-                    'excess'     : np.nan,
-                    'alpha'      : np.inf,
-                    'sigma'      : np.nan,
-                    'livetime'   : np.nan,
-                    'aeff_mean'  : np.nan  
-                    }
-        '''
         return spectrum_dataset_OnOff, stats
 
     def execute_dl3_dl4_reduction(self):
