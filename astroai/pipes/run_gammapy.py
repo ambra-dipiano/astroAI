@@ -18,6 +18,10 @@ from astroai.tools.ganalysis import GAnalysis
 with warnings.catch_warnings():
     warnings.filterwarnings('error')
 
+def get_snr(excess, bkg):
+    snr = excess/np.sqrt(excess+bkg)
+    return snr
+
 def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
     ganalysis = GAnalysis()
     ganalysis.set_conf(conf)
@@ -45,7 +49,7 @@ if __name__ == '__main__':
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
-    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma\n')
+    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma snr\n')
 
     # cicle every seed in samples
     for i in range(conf['samples']):
@@ -71,8 +75,10 @@ if __name__ == '__main__':
 
         # run pipeline
         stats, candidate = run_gammapy_pipeline(conf=conf, dl3_file=dl3, target_name=f"crab_{seed:05d}", target_dict=candidate_init)
-        print(stats['counts'])
-        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']}\n")
+
+        snr = get_snr(excess=stats['excess'], bkg=stats['counts_off'])
+
+        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {snr}\n")
 
     results.close()
 
