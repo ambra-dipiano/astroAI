@@ -10,6 +10,7 @@
 import warnings
 import argparse
 import pandas as pd
+import numpy as np
 from os import makedirs
 from os.path import join, dirname
 from astroai.tools.utils import load_yaml_conf, get_irf_name, select_random_irf
@@ -76,7 +77,10 @@ if __name__ == '__main__':
         # run pipeline
         stats, candidate = run_gammapy_pipeline(conf=conf, dl3_file=dl3, target_name=f"crab_{seed:05d}", target_dict=candidate_init)
 
-        snr = get_snr(excess=stats['excess'], bkg=stats['counts_off'])
+        try:
+            snr = get_snr(excess=stats['excess'], bkg=stats['counts_off'])
+        except:
+            snr = np.nan
 
         results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {snr}\n")
 
