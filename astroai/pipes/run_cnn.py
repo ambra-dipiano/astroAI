@@ -23,7 +23,6 @@ def run_cnn_pipeline(dl3, binning, cleaner, regressor):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', '--configuration', type=str, required=True, help="path to the configuration file")
-    parser.add_argument('-z', '--zenith', type=str, required=True, choices=['20', 'ALL'], help="zenith angle of choice")
     args = parser.parse_args()
 
     # get configuration and infodata
@@ -48,8 +47,8 @@ if __name__ == '__main__':
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
 
         # load models
-        cleaner = tf.keras.models.load_model(f'../models/crta_models/cleaner_z{args.zenith}.keras')
-        regressor = tf.keras.models.load_model(f'../models/crta_models/regressor_z{args.zenith}.keras')
+        cleaner = tf.keras.models.load_model(f'../models/crta_models/cleaner_z{conf["cnn"]["saveas"]}.keras')
+        regressor = tf.keras.models.load_model(f'../models/crta_models/regressor_z{conf["cnn"]["saveas"]}.keras')
 
         # run pipeline
         prediction, candidate = run_cnn_pipeline(conf=conf, dl3=dl3, cleaner=cleaner, rergessor=regressor)
