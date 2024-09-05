@@ -9,7 +9,7 @@
 
 import argparse
 from os import system, makedirs
-from os.path import abspath, join, expandvars, dirname
+from os.path import abspath, join, dirname
 from datetime import datetime
 
 def main(architecture, filename, mode):

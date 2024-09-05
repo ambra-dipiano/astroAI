@@ -8,11 +8,12 @@
 # *******************************************************************************
 
 import argparse
+from datetime import datetime
 from os import system, makedirs
-from os.path import abspath, join, expandvars, dirname
+from os.path import abspath, join, dirname
 
 def main(pipe, filename):
-    job_name = f'{pipe}'
+    job_name = f'{pipe}_{datetime.now().strftime("%Y%m%dT%H%M%S")}'
     pipe = f'{pipe}'
     # write bash
     outdir = join(dirname(abspath(__file__)), 'slurms')
