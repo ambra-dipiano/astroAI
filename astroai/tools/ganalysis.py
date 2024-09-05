@@ -17,6 +17,7 @@
 
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from astropy import units as u
 from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table
@@ -233,6 +234,7 @@ class GAnalysis():
         # Save Image. Create job directory if it does not exist
         os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
         fig.savefig(Titles['Output'])
+        plt.close()
     
     def read_dataset(self):
         # Read the dataset
