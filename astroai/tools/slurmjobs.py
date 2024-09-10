@@ -9,9 +9,9 @@
 
 import argparse
 from os import system, makedirs
-from os.path import abspath, join, expandvars, dirname
+from os.path import abspath, join, dirname
 
-def main(script, filename):
+def main(script, filename, env):
     job_name = f'{script}'
     script = f'{script}'
     slurmpath = join(dirname(abspath(__file__)), 'slurms')
@@ -21,7 +21,12 @@ def main(script, filename):
     sh_outname = join(slurmpath, f'{job_name}.sh')
     with open(sh_outname, 'w+') as f:
         f. write("#!/bin/bash\n")
-        f.write(f"\mamba activate astroai")
+        if env == 'venv':
+            f.write(f"\nsource /home/dipiano/venvs/astroai/bin/activate")
+        elif env == 'conda':
+            f.write(f"\nconda activate astroai")
+        elif env == 'mamba':
+            f.write(f"\nmamba activate astroai")
         f.write(f"\n\tpython {join(dirname(abspath(__file__)), script)}.py -f {filename}\n")
 
     # write job
@@ -42,8 +47,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--script', type=str, required=True, choices=['preprocess_ds', 'normalise_ds', 'load_and_normalise_maps', 'preclean_ds'], help='Script to submit')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
+    parser.add_argument('-e', '--env', type=str, required=True, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
     args = parser.parse_args()
 
-    main(args.script, args.filename)
+    main(args.script, args.filename, args.env)
 
 
