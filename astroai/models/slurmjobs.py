@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--architecture', type=str, required=True, choices=['cnn'], help='Architecture of the model')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
     parser.add_argument('-m', '--mode', type=str, required=False, choices=['clean', 'classify', 'detect', 'loc', 'regression'], help='Scope of the model')
-    parser.add_argument('-e', '--env', type=str, required=True, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
+    parser.add_argument('-e', '--env', type=str, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
     args = parser.parse_args()
 
     main(args.architecture, args.filename, args.mode, args.env)

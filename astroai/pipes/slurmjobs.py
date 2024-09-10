@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--pipe', type=str, required=True, choices=['gammapy', 'cnn'], help='Pipeline to submit')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
-    parser.add_argument('-e', '--env', type=str, required=True, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
+    parser.add_argument('-e', '--env', type=str, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
     args = parser.parse_args()
 
     main(f'run_{args.pipe}', args.filename, args.env)

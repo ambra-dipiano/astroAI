@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--script', type=str, required=True, choices=['preprocess_ds', 'normalise_ds', 'load_and_normalise_maps', 'preclean_ds'], help='Script to submit')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
-    parser.add_argument('-e', '--env', type=str, required=True, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
+    parser.add_argument('-e', '--env', type=str, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
     args = parser.parse_args()
 
     main(args.script, args.filename, args.env)
