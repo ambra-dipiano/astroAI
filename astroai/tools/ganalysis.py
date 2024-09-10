@@ -435,7 +435,8 @@ class GAnalysis():
                     'alpha'      : np.inf,
                     'sigma'      : np.nan,
                     'livetime'   : np.nan,
-                    'aeff_mean'  : np.nan  
+                    'aeff_mean'  : np.nan,  
+                    'offset'     : np.nan,
                     }
             return spectrum_dataset_OnOff, stats
         else:   
@@ -453,7 +454,8 @@ class GAnalysis():
                 'alpha'      : infodict['alpha'],
                 'sigma'      : infodict['sqrt_ts'],
                 'livetime'   : infodict['livetime'].to('s').value,
-                'aeff_mean'  : effective_area_mean  
+                'aeff_mean'  : effective_area_mean,
+                'offset'     : distance_pointing_target.deg,
                 }
 
         # 7 - Plot Counts Map and Mask
