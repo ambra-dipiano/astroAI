@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
-    results.write('seed loc_ra loc_dec counts_on counts_off alpha excess excess_err sigma snr aeff\n')
+    results.write('seed loc_ra loc_dec offset counts_on counts_off alpha excess excess_err sigma snr aeff\n')
 
     # cicle every seed in samples
     for i in range(conf['samples']):
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         except:
             snr = np.nan
 
-        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['counts']} {stats['counts_off']} {stats['alpha']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {snr} {stats['aeff_mean']}\n")
+        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['offset']} {stats['counts']} {stats['counts_off']} {stats['alpha']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {snr} {stats['aeff_mean']}\n")
 
     results.close()
 
