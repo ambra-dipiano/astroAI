@@ -190,7 +190,7 @@ def process_dataset(ds1_dataset_path, ds2_dataset_path, infotable, saveas, trang
 
             # add to dataset
             if heatmap.shape != (binning, binning):
-                heatmap.reshape(binning, binning)
+                heatmap = heatmap.reshape(binning, binning)
             datasets[k].append(heatmap)
 
     # convert to numpy array
@@ -281,7 +281,7 @@ def process_regressor_dataset(ds_dataset_path, infotable, saveas, smoothing, bin
 
         # add to dataset
         if heatmap.shape != (binning, binning):
-            heatmap.reshape(binning, binning)
+            heatmap = heatmap.reshape(binning, binning)
 
         # append to ds
         #datasets['DS'].append(heatmap)
@@ -327,7 +327,7 @@ def get_and_normalise_dataset(ds_path, sample, save=False, output=None, norm_val
             heatmap = np.load(f, allow_pickle=True, encoding='latin1', fix_imports=True).flat[0]
             # normalise map
             if norm_value is not None:
-                normalise_dataset(heatmap, min_value=norm_value[0], max_value=norm_value[1])
+                heatmap = normalise_dataset(heatmap, min_value=norm_value[0], max_value=norm_value[1])
             else:
                 heatmap = normalise_heatmap(heatmap)
             # add to dataset
