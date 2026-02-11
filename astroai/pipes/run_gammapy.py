@@ -71,7 +71,7 @@ if __name__ == '__main__':
             conf['simulation']['irf'] = get_irf_name(irf=row['irf'].values[0], caldb_path=join(conf['simulation']['caldb_path'], conf['simulation']['caldb']))
 
         # setup coordinates
-        true = {'ra': row['source_dec'].values[0], 'dec': row['source_dec'].values[0], 'rad': conf['photometry']['onoff_radius']}
+        true = {'ra': row['source_ra'].values[0], 'dec': row['source_dec'].values[0], 'rad': conf['photometry']['onoff_radius']}
         candidate_init = {'ra': None, 'dec': None, 'rad': conf['photometry']['onoff_radius']}
 
         # run pipeline

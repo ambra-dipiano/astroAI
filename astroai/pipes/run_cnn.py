@@ -51,7 +51,7 @@ if __name__ == '__main__':
         regressor = tf.keras.models.load_model(f'../models/crta_models/regressor_z{conf["cnn"]["saveas"]}.keras')
 
         # run pipeline
-        prediction, candidate = run_cnn_pipeline(conf=conf, dl3=dl3, cleaner=cleaner, rergessor=regressor)
+        prediction, candidate = run_cnn_pipeline(dl3=dl3, binning=conf['preprocess']['binning'], cleaner=cleaner, regressor=regressor)
         results.write(f"{seed} {candidate['ra']} {candidate['dec']}\n")
 
     results.close()
