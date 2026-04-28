@@ -36,6 +36,7 @@ from gammapy.irf import load_irf_dict_from_file
 from gammapy.makers import  MapDatasetMaker, SafeMaskMaker, ReflectedRegionsFinder, ReflectedRegionsBackgroundMaker
 from gammapy.maps import Map, WcsGeom, MapAxis
 from astroai.tools.utils import convert_tt_to_mjd, get_irf_file
+from astroai.tools.benchmark_markers import BenchmarkTask
 
 # Ignore some warnings
 filterwarnings("ignore", category=np.VisibleDeprecationWarning)
@@ -246,7 +247,8 @@ class GAnalysis():
         # Get the ID of the Observation Block and of the current data batch (Job ID)
         Id_OB = self.conf['simulation']['id']
         # Read and set all the data, IRFs, GTIs and make appropriate corrections.
-        dataset, event_list, gti = self.read_events(dataset)
+        with BenchmarkTask('dl3_to_counts_map', seed=Id_OB):
+            dataset, event_list, gti = self.read_events(dataset)
         
         # SECTION 2 - COUNTS MAP
         if self.conf['execute']['savefits']:
@@ -264,37 +266,38 @@ class GAnalysis():
             self.plot_Wcs2DMap(dataset.exposure  , "IRF Exposure"   , stretch="linear", gti=dataset.gti)
         
         # SECTION 3 - BLIND SEARCH
-        if self.conf['execute']['blindsearch']:            
-            # Perform Blindsearch
-            try:
-                target_ra, target_dec = self.run_blind_search(dataset, blind_search_method = 'first')
-            except:
-                target_ra, target_dec = np.nan, np.nan
-            # Update target dict
-            target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
-            if name=='None':
-                name='Hotspot'        
+        with BenchmarkTask('core_analysis', seed=Id_OB):
+            if self.conf['execute']['blindsearch']:            
+                # Perform Blindsearch
+                try:
+                    target_ra, target_dec = self.run_blind_search(dataset, blind_search_method = 'first')
+                except:
+                    target_ra, target_dec = np.nan, np.nan
+                # Update target dict
+                target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
+                if name=='None':
+                    name='Hotspot'        
 
-        # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
-        if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
-            spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
-        
-            # Propagate statistical errors on Excess and Li&Ma Significance
-            excess_err= np.sqrt(np.power(np.sqrt(stats['counts']),2) + np.power(np.sqrt(stats['counts_off']),2))
-            sigma_err = 0
-            stats['excess_error'] = excess_err       
-            stats['sigma_error'] = sigma_err
-        else:
-            stats={'counts'       :0.0,
-                   'counts_off'   :0.0,
-                   'excess'       :0.0,
-                   'alpha'        :0.0,
-                   'sigma'        :0.0,
-                   'livetime'     :0.0,
-                   'excess_error' :0.0,
-                   'sigma_error'  :0.0,
-                   'aeff_mean'    :0.0
-                   }
+            # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
+            if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
+                spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
+            
+                # Propagate statistical errors on Excess and Li&Ma Significance
+                excess_err= np.sqrt(np.power(np.sqrt(stats['counts']),2) + np.power(np.sqrt(stats['counts_off']),2))
+                sigma_err = 0
+                stats['excess_error'] = excess_err       
+                stats['sigma_error'] = sigma_err
+            else:
+                stats={'counts'       :0.0,
+                       'counts_off'   :0.0,
+                       'excess'       :0.0,
+                       'alpha'        :0.0,
+                       'sigma'        :0.0,
+                       'livetime'     :0.0,
+                       'excess_error' :0.0,
+                       'sigma_error'  :0.0,
+                       'aeff_mean'    :0.0
+                       }
         return stats, target_dict
 
     def read_events(self, dataset):
