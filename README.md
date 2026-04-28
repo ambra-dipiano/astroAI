@@ -55,6 +55,18 @@ To run this code you are required to provide DL3 simulations in a compatible FIT
 - You can preprocess data using the instructions in the dedicated [README](./astroai/tools/README.md).
 - You can train models anew following the instructions in the dedicated [README](./astroai/models/README.md) or use the provided [cnn_models_v1](https://zenodo.org/).
 - You can compare the resuts with the reference real-time analysis pipeline following the instructions in the dedicated [README](./astroai/pipes/README.md).
+- You can run the ZALL cleaner/regressor benchmark pipeline (time/RAM/throughput) from terminal with:
+  ```bash
+  python -m astroai.tools.run_review_benchmark
+  ```
+  and then generate science plots from saved results with:
+  ```bash
+  python -m astroai.tools.plot_review_science
+  ```
+  Outputs are written by default under `astroai/review` with `data/` and `plots/` subfolders.
+- For pipeline benchmarking, use the `astroai/pipes` workflow with:
+  - `python astroai/tools/benchmark_pipeline.py ...`
+  - `python astroai/tools/compare_pipeline_benchmark.py ...`
 
 ## Configurations
 
