@@ -9,15 +9,40 @@
 
 import argparse
 import pandas as pd
+import numpy as np
 from os import makedirs
 from os.path import join, dirname, isfile
-from astroai.tools.utils import load_yaml_conf
+from astropy.table import Table
+from astroai.tools.utils import load_yaml_conf, extract_heatmap_from_table, normalise_heatmap, normalise_dataset, stretch_smooth, stretch_min_max
 import tensorflow as tf
 
-def run_cnn_pipeline(dl3, binning, cleaner, regressor):
-    heatmap = 'preprocess map from dl3'
+def preprocess_dl3_heatmap(dl3, conf):
+    # read events from dl3 and preprocess map for CNN input
+    heatmap = Table.read(dl3, hdu=1).to_pandas()
+    heatmap = extract_heatmap_from_table(data=heatmap, trange=[conf['preprocess']['time_start'], conf['preprocess']['time_stop']], smoothing=conf['preprocess']['smoothing'], nbins=conf['preprocess']['binning'], filter=True)
+
+    # normalise map according to preprocessing setup
+    norm_value = conf['preprocess']['norm_value']
+    if norm_value == 1 and conf['preprocess']['stretch']:
+        heatmap = stretch_smooth(heatmap, conf['preprocess']['smoothing'])
+    elif norm_value == 1 and not conf['preprocess']['stretch']:
+        heatmap = normalise_heatmap(heatmap)
+    elif type(norm_value) == float and conf['preprocess']['stretch']:
+        heatmap = stretch_min_max(heatmap, vmax=norm_value)
+    elif type(norm_value) == float and not conf['preprocess']['stretch']:
+        heatmap = normalise_dataset(heatmap, max_value=norm_value)
+
+    # reshape as keras input tensor
+    binning = conf['preprocess']['binning']
+    if heatmap.shape != (binning, binning):
+        heatmap = heatmap.reshape(binning, binning)
+    heatmap = np.array(heatmap).reshape(1, binning, binning, 1)
+    return heatmap
+
+def run_cnn_pipeline(dl3, conf, cleaner, regressor):
+    heatmap = preprocess_dl3_heatmap(dl3=dl3, conf=conf)
     prediction = cleaner.predict(heatmap)
-    candidate = regressor.predict(heatmap) * binning
+    candidate = regressor.predict(prediction) * conf['preprocess']['binning']
     return prediction, candidate
 
 if __name__ == '__main__':
@@ -67,7 +92,7 @@ if __name__ == '__main__':
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
 
         # run pipeline
-        prediction, candidate = run_cnn_pipeline(dl3=dl3, binning=conf['preprocess']['binning'], cleaner=cleaner, regressor=regressor)
+        prediction, candidate = run_cnn_pipeline(dl3=dl3, conf=conf, cleaner=cleaner, regressor=regressor)
         results.write(f"{seed} {candidate['ra']} {candidate['dec']}\n")
 
     results.close()
