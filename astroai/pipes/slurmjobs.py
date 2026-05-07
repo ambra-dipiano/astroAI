@@ -46,14 +46,14 @@ def main(pipe, filename, env, usr, part):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--pipe', type=str, required=True, choices=['gammapy', 'cnn'], help='Pipeline to submit')
+    parser.add_argument('-pp', '--pipe', type=str, required=True, choices=['gammapy', 'cnn'], help='Pipeline to submit')
     parser.add_argument('-f', '--filename', type=str, required=True, help='Configuration YAML file')
     parser.add_argument('-e', '--env', type=str, default='venv', choices=['venv', 'conda', 'mamba'], help='Virtual environtmet package')
     parser.add_argument('-u', '--user', type=str, required=True, help='Account username for SLURM jobs')
     parser.add_argument('-p', '--partition', type=str, default='large', help='Partition name for SLURM jobs')
     args = parser.parse_args()
 
-    main(args.architecture, args.filename, args.mode, args.env, args.usr, args.partition)
+    main(args.pipe, args.filename, args.env, args.user, args.partition)
 
 
 
