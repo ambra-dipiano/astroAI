@@ -16,6 +16,7 @@
 # *****************************************************************************
 
 import os
+from time import perf_counter
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
@@ -242,13 +243,21 @@ class GAnalysis():
         return dataset
     
     def run_gammapy_analysis_pipeline(self, dataset, name, target_dict):
+        timing = {'t_section_setup': np.nan,
+                  't_section_counts_map': np.nan,
+                  't_section_blindsearch': np.nan,
+                  't_section_photometry': np.nan}
+
         # SECTION 1 - Setup.
         # Get the ID of the Observation Block and of the current data batch (Job ID)
         Id_OB = self.conf['simulation']['id']
         # Read and set all the data, IRFs, GTIs and make appropriate corrections.
+        t0 = perf_counter()
         dataset, event_list, gti = self.read_events(dataset)
+        timing['t_section_setup'] = perf_counter() - t0
         
         # SECTION 2 - COUNTS MAP
+        t0 = perf_counter()
         if self.conf['execute']['savefits']:
             # Write 3D Counts Cube as FITS
             output_name = os.path.join(self.conf['execute']['outdir'], f"seed{Id_OB}_counts_cube.fits")
@@ -262,8 +271,10 @@ class GAnalysis():
         if self.conf['execute']['plotirfs']:
             self.plot_Wcs2DMap(dataset.background, "IRF Bkgd Counts", stretch="sqrt"  , gti=dataset.gti)
             self.plot_Wcs2DMap(dataset.exposure  , "IRF Exposure"   , stretch="linear", gti=dataset.gti)
+        timing['t_section_counts_map'] = perf_counter() - t0
         
         # SECTION 3 - BLIND SEARCH
+        t0 = perf_counter()
         if self.conf['execute']['blindsearch']:            
             # Perform Blindsearch
             try:
@@ -274,8 +285,10 @@ class GAnalysis():
             target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
             if name=='None':
                 name='Hotspot'        
+        timing['t_section_blindsearch'] = perf_counter() - t0
 
         # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
+        t0 = perf_counter()
         if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
             spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
         
@@ -295,7 +308,8 @@ class GAnalysis():
                    'sigma_error'  :0.0,
                    'aeff_mean'    :0.0
                    }
-        return stats, target_dict
+        timing['t_section_photometry'] = perf_counter() - t0
+        return stats, target_dict, timing
 
     def read_events(self, dataset):
         # Read the Event List
