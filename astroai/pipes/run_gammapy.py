@@ -67,12 +67,17 @@ if __name__ == '__main__':
 
     # get configuration and infodata
     conf = load_yaml_conf(args.configuration)
+    benchmark = conf['benchmark'] if 'benchmark' in conf else {'enabled': False}
+    benchmark_enabled = benchmark['enabled']
     infodata = pd.read_csv(join(dirname(conf['simulation']['directory']), conf['simulation']['datfile']), sep=' ', header=0).sort_values(by=['seed'])
 
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
-    results.write('seed loc_ra loc_dec offset counts_on counts_off alpha excess excess_err sigma snr aeff irf t_irf_prepare t_dataset_read t_analysis_total t_section_setup t_section_counts_map t_section_blindsearch t_section_photometry t_total\n')
+    if benchmark_enabled:
+        results.write('seed loc_ra loc_dec offset counts_on counts_off alpha excess excess_err sigma snr aeff irf t_irf_prepare t_dataset_read t_analysis_total t_section_setup t_section_counts_map t_section_blindsearch t_section_photometry t_total\n')
+    else:
+        results.write('seed loc_ra loc_dec offset counts_on counts_off alpha excess excess_err sigma snr aeff irf\n')
 
     # cicle every seed in samples
     for i in range(conf['samples']):
@@ -106,7 +111,10 @@ if __name__ == '__main__':
         except:
             snr = np.nan
 
-        results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['offset']} {stats['counts']} {stats['counts_off']} {stats['alpha']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {snr} {stats['aeff_mean']} {basename(conf['simulation']['irf'])} {timing['t_irf_prepare']} {timing['t_dataset_read']} {timing['t_analysis_total']} {timing['t_section_setup']} {timing['t_section_counts_map']} {timing['t_section_blindsearch']} {timing['t_section_photometry']} {timing['t_total']}\n")
+        if benchmark_enabled:
+            results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['offset']} {stats['counts']} {stats['counts_off']} {stats['alpha']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {snr} {stats['aeff_mean']} {basename(conf['simulation']['irf'])} {timing['t_irf_prepare']} {timing['t_dataset_read']} {timing['t_analysis_total']} {timing['t_section_setup']} {timing['t_section_counts_map']} {timing['t_section_blindsearch']} {timing['t_section_photometry']} {timing['t_total']}\n")
+        else:
+            results.write(f"{seed} {candidate['ra']} {candidate['dec']} {stats['offset']} {stats['counts']} {stats['counts_off']} {stats['alpha']} {stats['excess']} {stats['excess_error']} {stats['sigma']} {snr} {stats['aeff_mean']} {basename(conf['simulation']['irf'])}\n")
 
     results.close()
 
