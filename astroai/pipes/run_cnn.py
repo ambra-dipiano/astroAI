@@ -8,6 +8,7 @@
 # *******************************************************************************
 
 import argparse
+import os
 from time import perf_counter
 import pandas as pd
 import numpy as np
@@ -15,6 +16,10 @@ from os import makedirs
 from os.path import join, dirname, isfile
 from astropy.table import Table
 from astroai.tools.utils import load_yaml_conf, set_wcs, extract_heatmap_from_table, normalise_heatmap, normalise_dataset, stretch_smooth, stretch_min_max
+
+# force cpu run and reduce tensorflow runtime logs
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 
 def preprocess_dl3_heatmap(dl3, conf):
