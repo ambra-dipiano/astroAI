@@ -52,5 +52,5 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--partition', type=str, default='large', help='Partition name for SLURM jobs')
     args = parser.parse_args()
 
-    main(args.architecture, args.filename, args.mode, args.env, args.usr, args.partition)
+    main(args.script, args.filename, args.env, args.user, args.partition)
 
