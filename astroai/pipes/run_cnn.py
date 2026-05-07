@@ -10,7 +10,7 @@
 import argparse
 import pandas as pd
 from os import makedirs
-from os.path import join, dirname
+from os.path import join, dirname, isfile
 from astroai.tools.utils import load_yaml_conf
 import tensorflow as tf
 
@@ -27,12 +27,32 @@ if __name__ == '__main__':
 
     # get configuration and infodata
     conf = load_yaml_conf(args.configuration)
+    if 'cnn_inference' not in conf:
+        raise KeyError("Missing 'cnn_inference' section in configuration file")
+    if 'cleaner_model' not in conf['cnn_inference']:
+        raise KeyError("Missing 'cnn_inference.cleaner_model' in configuration file")
+    if 'regressor_model' not in conf['cnn_inference']:
+        raise KeyError("Missing 'cnn_inference.regressor_model' in configuration file")
     infodata = pd.read_csv(join(dirname(conf['simulation']['directory']), conf['simulation']['datfile']), sep=' ', header=0).sort_values(by=['seed'])
 
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
     results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma irf\n')
+
+    # load models from inference configuration
+    cleaner_model = conf['cnn_inference']['cleaner_model']
+    regressor_model = conf['cnn_inference']['regressor_model']
+    if not isfile(cleaner_model):
+        cleaner_model = join(dirname(__file__), '../models/crta_models', cleaner_model)
+    if not isfile(regressor_model):
+        regressor_model = join(dirname(__file__), '../models/crta_models', regressor_model)
+    if not isfile(cleaner_model):
+        raise FileNotFoundError(f"Cleaner model not found: {cleaner_model}")
+    if not isfile(regressor_model):
+        raise FileNotFoundError(f"Regressor model not found: {regressor_model}")
+    cleaner = tf.keras.models.load_model(cleaner_model)
+    regressor = tf.keras.models.load_model(regressor_model)
 
     # cicle every seed in samples
     for i in range(conf['samples']):
@@ -45,10 +65,6 @@ if __name__ == '__main__':
         dl3 = join(conf['simulation']['directory'], f'crab_{seed:05d}.fits')
         conf['simulation']['point_ra'] = row['point_ra'].values[0]
         conf['simulation']['point_dec'] = row['point_dec'].values[0]
-
-        # load models
-        cleaner = tf.keras.models.load_model(f'../models/crta_models/cleaner_z{conf["cnn"]["saveas"]}.keras')
-        regressor = tf.keras.models.load_model(f'../models/crta_models/regressor_z{conf["cnn"]["saveas"]}.keras')
 
         # run pipeline
         prediction, candidate = run_cnn_pipeline(dl3=dl3, binning=conf['preprocess']['binning'], cleaner=cleaner, regressor=regressor)
