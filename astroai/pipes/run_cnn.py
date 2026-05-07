@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
-    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma\n')
+    results.write('seed loc_ra loc_dec counts_on counts_off excess excess_err sigma irf\n')
 
     # cicle every seed in samples
     for i in range(conf['samples']):
