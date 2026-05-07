@@ -67,7 +67,4 @@ execute:
 
 # BENCHMARK OPTIONS
 benchmark:
-  compare_with_gammapy:            # option to compare with gammapy results file (yes/no)
-  gammapy_file:                    # gammapy results file path
-  save_loc_error:                  # save localisation error products (yes/no)
-  save_cleaning_error:             # save cleaning error products (yes/no)
+  enabled:                         # option to run benchmark products (yes/no)
