@@ -24,16 +24,20 @@ def get_snr(excess, bkg):
     return snr
 
 def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
+    # Step 1 - Preparation
     ganalysis = GAnalysis()
     ganalysis.set_conf(conf)
     ganalysis.set_eventfilename(dl3_file)
     # get reducedirf or make it if missing
     try:
+        # Step 2/A - get reduced IRF if exhisting
         ganalysis.set_reducedirfs(conf['execute']['reducedirfdir'], seed=conf['simulation']['id'])
     except AssertionError as e:
+        # Step 2/B - compute reduced IRF if not exhisting
         ganalysis.execute_dl3_dl4_reduction()
-    # read dataset
+    # Step 3 - read dataset
     dataset = ganalysis.read_dataset()
+    # Step 4 - run analysis
     stats, candidate = ganalysis.run_gammapy_analysis_pipeline(dataset, target_name, target_dict)
     return stats, candidate
 
