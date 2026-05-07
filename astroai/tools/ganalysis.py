@@ -243,18 +243,18 @@ class GAnalysis():
         return dataset
     
     def run_gammapy_analysis_pipeline(self, dataset, name, target_dict):
-        timing = {'t_section_setup': np.nan,
-                  't_section_counts_map': np.nan,
-                  't_section_blindsearch': np.nan,
-                  't_section_photometry': np.nan}
+        timing = {'t_setup': np.nan,
+                  't_counts_map': np.nan,
+                  't_blindsearch': np.nan,
+                  't_photometry': np.nan}
 
-        # SECTION 1 - Setup.
+        # SECTION 1 - Setup
+        t0 = perf_counter()
         # Get the ID of the Observation Block and of the current data batch (Job ID)
         Id_OB = self.conf['simulation']['id']
         # Read and set all the data, IRFs, GTIs and make appropriate corrections.
-        t0 = perf_counter()
         dataset, event_list, gti = self.read_events(dataset)
-        timing['t_section_setup'] = perf_counter() - t0
+        timing['t_setup'] = perf_counter() - t0
         
         # SECTION 2 - COUNTS MAP
         t0 = perf_counter()
@@ -263,15 +263,13 @@ class GAnalysis():
             output_name = os.path.join(self.conf['execute']['outdir'], f"seed{Id_OB}_counts_cube.fits")
             dataset.counts.write(output_name, overwrite=True)
         # Save Plot of 2D Counts Map
-        # When AP is inactive, jobconf.makemap will control this functionality.
-        # When AP is active, jobconf.makemap will create the zoomed map, only plotfullfov can print this. 
         if self.conf['execute']['plotfullfov'] or (self.conf['execute']['makemap'] and not self.conf['execute']['computeph']):
             self.plot_Wcs2DMap(dataset.counts, "Counts", stretch='sqrt', gti=gti)
         # Save Plots for Predicted Background Counts and Exposure
         if self.conf['execute']['plotirfs']:
             self.plot_Wcs2DMap(dataset.background, "IRF Bkgd Counts", stretch="sqrt"  , gti=dataset.gti)
             self.plot_Wcs2DMap(dataset.exposure  , "IRF Exposure"   , stretch="linear", gti=dataset.gti)
-        timing['t_section_counts_map'] = perf_counter() - t0
+        timing['t_counts_map'] = perf_counter() - t0
         
         # SECTION 3 - BLIND SEARCH
         t0 = perf_counter()
@@ -285,7 +283,7 @@ class GAnalysis():
             target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
             if name=='None':
                 name='Hotspot'        
-        timing['t_section_blindsearch'] = perf_counter() - t0
+        timing['t_blindsearch'] = perf_counter() - t0
 
         # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
         t0 = perf_counter()
@@ -308,7 +306,7 @@ class GAnalysis():
                    'sigma_error'  :0.0,
                    'aeff_mean'    :0.0
                    }
-        timing['t_section_photometry'] = perf_counter() - t0
+        timing['t_photometry'] = perf_counter() - t0
         return stats, target_dict, timing
 
     def read_events(self, dataset):
@@ -405,9 +403,10 @@ class GAnalysis():
             raise NotImplementedError('Currently only the "first" method is available.')
         
         # Write selected source as a DS9 region file. Create job directory if it does not exist
-        os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
-        regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simulation']['skyframeref']), OnOffRegionRadius)
-        regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)        
+        if self.conf['execute']['mapreg']:
+            os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
+            regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simulation']['skyframeref']), OnOffRegionRadius)
+            regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)
         return target_ra, target_dec
 
     def run_aperture_photometry(self, dataset, target_dict, target_name, event_list, gti, method="reflection"):
@@ -453,8 +452,9 @@ class GAnalysis():
                     'offset'     : np.nan,
                     }
             return spectrum_dataset_OnOff, stats
-        else:   
-            Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)           
+        else:
+            if self.conf['execute']['mapreg']:
+                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)
 
         # 6 - Compute the OFF Regions: Counts are taken from the Event List
         spectrum_dataset_OnOff = refl_bkg_maker.run(spectrum_dataset, obs)
