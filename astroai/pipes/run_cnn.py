@@ -15,7 +15,8 @@ import numpy as np
 from os import makedirs
 from os.path import join, dirname, isfile
 from astropy.table import Table
-from astroai.tools.utils import load_yaml_conf, set_wcs, extract_heatmap_from_table, normalise_heatmap, normalise_dataset, stretch_smooth, stretch_min_max
+from astropy.coordinates import SkyCoord
+from astroai.tools.utils import load_yaml_conf, set_wcs, create_circular_mask, extract_heatmap_from_table, normalise_heatmap, normalise_dataset, stretch_smooth, stretch_min_max
 
 # force cpu run and reduce tensorflow runtime logs
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -62,7 +63,33 @@ def run_cnn_pipeline(dl3, conf, cleaner, regressor):
     t0 = perf_counter()
     candidate = regressor.predict(prediction) * conf['preprocess']['binning']
     timing['t_regressor'] = perf_counter() - t0
-    return prediction, candidate, timing
+    return heatmap, prediction, candidate, timing
+
+def get_cleaner_metrics(heatmap, prediction, row, conf):
+    # compute cleaner metrics on full map and on source region
+    noisy_map = heatmap[0, :, :, 0]
+    clean_map = prediction[0, :, :, 0]
+    residual_map = noisy_map - clean_map
+
+    # full map metrics
+    sum_cleaned = np.sum(clean_map)
+    sum_residual = np.sum(residual_map)
+
+    # source region metrics
+    binning = conf['preprocess']['binning']
+    pixelsize = (2 * row['fov'].values[0]) / binning
+    point_ref = (binning / 2) + (pixelsize / 2)
+    w = set_wcs(point_ra=row['point_ra'].values[0], point_dec=row['point_dec'].values[0], point_ref=point_ref, pixelsize=pixelsize)
+    source = SkyCoord(row['source_ra'].values[0], row['source_dec'].values[0], unit='deg', frame='icrs')
+    x, y = w.world_to_pixel(source)
+    radius_deg = conf['photometry']['onoff_radius'] if 'photometry' in conf and 'onoff_radius' in conf['photometry'] else 0.2
+    radius_pix = radius_deg / pixelsize
+    h, w = clean_map.shape
+    mask = create_circular_mask(h, w, center=(y, x), radius=radius_pix)
+
+    sum_on_cleaned = np.sum(clean_map * mask)
+    sum_on_residual = np.sum(residual_map * mask)
+    return sum_cleaned, sum_residual, sum_on_cleaned, sum_on_residual
 
 def get_candidate_from_regressor(candidate, row, binning):
     # decode candidate from regressor output
@@ -98,9 +125,9 @@ if __name__ == '__main__':
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
     if benchmark_enabled:
-        results.write('seed loc_ra loc_dec loc_x loc_y t_model_load t_preprocess t_cleaner t_regressor t_decode t_total\n')
+        results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum t_model_load t_preprocess t_cleaner t_regressor t_decode t_cleaner_metrics t_total\n')
     else:
-        results.write('seed loc_ra loc_dec loc_x loc_y\n')
+        results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum\n')
 
     # load models from inference configuration
     cleaner_model = conf['cnn_inference']['cleaner_model']
@@ -134,14 +161,17 @@ if __name__ == '__main__':
 
         # run pipeline
         t_start = perf_counter()
-        prediction, candidate, timing = run_cnn_pipeline(dl3=dl3, conf=conf, cleaner=cleaner, regressor=regressor)
+        heatmap, prediction, candidate, timing = run_cnn_pipeline(dl3=dl3, conf=conf, cleaner=cleaner, regressor=regressor)
         t0 = perf_counter()
         loc_ra, loc_dec, loc_x, loc_y = get_candidate_from_regressor(candidate=candidate, row=row, binning=conf['preprocess']['binning'])
         timing['t_decode'] = perf_counter() - t0
+        t0 = perf_counter()
+        clean_sum, residual_sum, on_clean_sum, on_residual_sum = get_cleaner_metrics(heatmap=heatmap, prediction=prediction, row=row, conf=conf)
+        timing['t_cleaner_metrics'] = perf_counter() - t0
         timing['t_total'] = perf_counter() - t_start
         if benchmark_enabled:
-            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {t_model_load} {timing['t_preprocess']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_total']}\n")
+            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum} {t_model_load} {timing['t_preprocess']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_cleaner_metrics']} {timing['t_total']}\n")
         else:
-            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y}\n")
+            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum}\n")
 
     results.close()
