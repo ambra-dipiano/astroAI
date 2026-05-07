@@ -23,11 +23,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 
-def preprocess_dl3_heatmap(dl3, conf):
-    # SECTION 1 - read events from dl3 and extract dl4 heatmap 
+def compute_counts_map(dl3, conf):
+    # SECTION 1 - read events from dl3 and extract dl4 heatmap
     heatmap = Table.read(dl3, hdu=1).to_pandas()
     heatmap = extract_heatmap_from_table(data=heatmap, trange=[conf['preprocess']['time_start'], conf['preprocess']['time_stop']], smoothing=conf['preprocess']['smoothing'], nbins=conf['preprocess']['binning'], filter=True)
+    return heatmap
 
+def prepare_heatmap(heatmap, conf):
     # SECTION 2 - normalise map according to preprocessing config
     norm_value = conf['preprocess']['norm_value']
     if norm_value == 1 and conf['preprocess']['stretch']:
@@ -49,10 +51,18 @@ def preprocess_dl3_heatmap(dl3, conf):
 def run_cnn_pipeline(dl3, conf, cleaner, regressor):
     timing = {}
 
-    # Step 1 - Preprocess data (aka make map)
+    # Step 1a - counts map (heatmap) computation
     t0 = perf_counter()
-    heatmap = preprocess_dl3_heatmap(dl3=dl3, conf=conf)
-    timing['t_preprocess'] = perf_counter() - t0
+    heatmap = compute_counts_map(dl3=dl3, conf=conf)
+    timing['t_counts_map'] = perf_counter() - t0
+
+    # Step 1b - preparation of counts map for cnn
+    t0 = perf_counter()
+    heatmap = prepare_heatmap(heatmap=heatmap, conf=conf)
+    timing['t_prepare'] = perf_counter() - t0
+
+    # keep aggregate preprocess timing for compatibility
+    timing['t_preprocess'] = timing['t_counts_map'] + timing['t_prepare']
 
     # Step 2 - Apply CNN-cleaner (aka prepare clean map)
     t0 = perf_counter()
@@ -125,7 +135,7 @@ if __name__ == '__main__':
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
     if benchmark_enabled:
-        results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum t_model_load t_preprocess t_cleaner t_regressor t_decode t_cleaner_metrics t_total\n')
+        results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum t_model_load t_counts_map t_prepare t_preprocess t_cleaner t_regressor t_decode t_cleaner_metrics t_total\n')
     else:
         results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum\n')
 
@@ -170,7 +180,7 @@ if __name__ == '__main__':
         timing['t_cleaner_metrics'] = perf_counter() - t0
         timing['t_total'] = perf_counter() - t_start
         if benchmark_enabled:
-            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum} {t_model_load} {timing['t_preprocess']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_cleaner_metrics']} {timing['t_total']}\n")
+            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum} {t_model_load} {timing['t_counts_map']} {timing['t_prepare']} {timing['t_preprocess']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_cleaner_metrics']} {timing['t_total']}\n")
         else:
             results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum}\n")
 
