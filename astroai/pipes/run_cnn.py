@@ -85,12 +85,17 @@ if __name__ == '__main__':
         raise KeyError("Missing 'cnn_inference.cleaner_model' in configuration file")
     if 'regressor_model' not in conf['cnn_inference']:
         raise KeyError("Missing 'cnn_inference.regressor_model' in configuration file")
+    benchmark = conf['benchmark'] if 'benchmark' in conf else {'enabled': False}
+    benchmark_enabled = benchmark['enabled']
     infodata = pd.read_csv(join(dirname(conf['simulation']['directory']), conf['simulation']['datfile']), sep=' ', header=0).sort_values(by=['seed'])
 
     # write results
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
-    results.write('seed loc_ra loc_dec loc_x loc_y t_model_load t_preprocess t_cleaner t_regressor t_decode t_total\n')
+    if benchmark_enabled:
+        results.write('seed loc_ra loc_dec loc_x loc_y t_model_load t_preprocess t_cleaner t_regressor t_decode t_total\n')
+    else:
+        results.write('seed loc_ra loc_dec loc_x loc_y\n')
 
     # load models from inference configuration
     cleaner_model = conf['cnn_inference']['cleaner_model']
@@ -129,6 +134,9 @@ if __name__ == '__main__':
         loc_ra, loc_dec, loc_x, loc_y = get_candidate_from_regressor(candidate=candidate, row=row, binning=conf['preprocess']['binning'])
         timing['t_decode'] = perf_counter() - t0
         timing['t_total'] = perf_counter() - t_start
-        results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {t_model_load} {timing['t_preprocess']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_total']}\n")
+        if benchmark_enabled:
+            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {t_model_load} {timing['t_preprocess']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_total']}\n")
+        else:
+            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y}\n")
 
     results.close()
