@@ -13,6 +13,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 
 TIMING_ORDER = [
     "t_irf_reduce",
@@ -33,8 +34,8 @@ TIMING_ORDER = [
 ]
 
 SETUP_REFERENCE_STEPS = ["t_irf_reduce", "t_model_load"]
-GP_MEANBAR_KEYS = ["t_irf_reduce", "t_preparation", "t_blindsearch", "t_photometry", "t_total"]
-CNN_MEANBAR_KEYS = ["t_model_load", "t_preprocess", "t_cleaner", "t_regressor", "t_decode", "t_cleaner_metrics", "t_total"]
+GP_GRANULAR_KEYS = ["t_preparation", "t_setup", "t_counts_map", "t_blindsearch", "t_photometry"]
+CNN_GRANULAR_KEYS = ["t_counts_map", "t_prepare", "t_preprocess", "t_cleaner", "t_regressor", "t_decode", "t_cleaner_metrics"]
 
 
 def load_table(path):
@@ -71,65 +72,24 @@ def save_total_hist(gp, cnn, outdir):
     ax.set_xlabel("total runtime [s]")
     ax.set_ylabel("samples")
     ax.grid(alpha=0.3)
-    ax.legend()
+    ax.legend(loc=0)
     fig.tight_layout()
     fig.savefig(os.path.join(outdir, "timing_total_hist.png"))
     plt.close(fig)
 
 
-def save_mean_bar(gp, cnn, outdir):
-    gp_cols = get_timing_columns(gp)
-    cnn_cols = get_timing_columns(cnn)
-    gp_ordered = [c for c in GP_MEANBAR_KEYS if c in gp_cols]
-    cnn_ordered = [c for c in CNN_MEANBAR_KEYS if c in cnn_cols]
-    if len(gp_ordered) == 0 and len(cnn_ordered) == 0:
-        return
+def pretty_step_label(key):
+    label = key.replace("t_", "").replace("_", " ")
+    if label == "decode":
+        return "decoding"
+    return label
 
-    h = 0.38
-    fig, (ax_gp, ax_cnn) = plt.subplots(2, 1, figsize=(11, 10), gridspec_kw={"height_ratios": [1, 1]})
 
-    # GAMMAPY subplot
-    y_gp = np.arange(len(gp_ordered))
-    gp_mean = np.array([gp[c].mean() for c in gp_ordered], dtype=float)
-    gp_std = np.array([gp[c].std() for c in gp_ordered], dtype=float)
-    gp_plot = np.nan_to_num(gp_mean, nan=0.0)
-    gp_err = np.nan_to_num(gp_std, nan=0.0)
-    ax_gp.barh(y_gp, gp_plot, xerr=gp_err, capsize=4, height=0.65, color="#2E86AB")
-    ax_gp.set_yticks(y_gp)
-    ax_gp.set_yticklabels(gp_ordered)
-    ax_gp.set_xlabel("mean runtime [s]")
-    ax_gp.set_title("Gammapy Mean Runtime by Timing Step", fontsize=12)
-    ax_gp.grid(axis="x", alpha=0.3)
-    ax_gp.set_xscale("log")
-    ax_gp.set_xlim(left=1e-3)
-    setup_idx_gp = [i for i, c in enumerate(gp_ordered) if c in SETUP_REFERENCE_STEPS]
-    if len(setup_idx_gp) > 0:
-        ax_gp.axhspan(min(setup_idx_gp) - 0.5, max(setup_idx_gp) + 0.5, color="#F6F6F6", zorder=0)
-    ax_gp.invert_yaxis()
-
-    # CNN subplot
-    y_cnn = np.arange(len(cnn_ordered))
-    cnn_mean = np.array([cnn[c].mean() for c in cnn_ordered], dtype=float)
-    cnn_std = np.array([cnn[c].std() for c in cnn_ordered], dtype=float)
-    cnn_plot = np.nan_to_num(cnn_mean, nan=0.0)
-    cnn_err = np.nan_to_num(cnn_std, nan=0.0)
-    ax_cnn.barh(y_cnn, cnn_plot, xerr=cnn_err, capsize=4, height=0.65, color="#F18F01")
-    ax_cnn.set_yticks(y_cnn)
-    ax_cnn.set_yticklabels(cnn_ordered)
-    ax_cnn.set_xlabel("mean runtime [s]")
-    ax_cnn.set_title("CNN Mean Runtime by Timing Step", fontsize=12)
-    ax_cnn.grid(axis="x", alpha=0.3)
-    ax_cnn.set_xscale("log")
-    ax_cnn.set_xlim(left=1e-3)
-    setup_idx_cnn = [i for i, c in enumerate(cnn_ordered) if c in SETUP_REFERENCE_STEPS]
-    if len(setup_idx_cnn) > 0:
-        ax_cnn.axhspan(min(setup_idx_cnn) - 0.5, max(setup_idx_cnn) + 0.5, color="#F6F6F6", zorder=0)
-    ax_cnn.invert_yaxis()
-
-    fig.suptitle("Mean Runtime by Timing Step (separate pipelines)", fontsize=13)
-    fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "timing_mean_bar.png"))
-    plt.close(fig)
+def is_nullish_timing(series, eps=1e-12):
+    vals = pd.to_numeric(series, errors="coerce")
+    if vals.isna().all():
+        return True
+    return np.nanmax(np.abs(vals.to_numpy(dtype=float))) <= eps
 
 
 def save_total_scatter(gp, cnn, outdir):
@@ -170,103 +130,138 @@ def get_step_series(df, cols):
     return np.nansum(data.to_numpy(), axis=1)
 
 
-def save_simplified_bar(gp, cnn, outdir):
-    # 1-to-1 conceptual mapping between gammapy and cnn timing steps
-    labels = ["before nightly activities", "preparation", "localization", "photometry", "total"]
+def cnn_prep_cols(df):
+    cols = []
+    if "t_counts_map" in df.columns:
+        cols.append("t_counts_map")
+    if "t_prepare" in df.columns:
+        cols.append("t_prepare")
+    if len(cols) == 0 and "t_preprocess" in df.columns:
+        cols.append("t_preprocess")
+    return cols
+
+
+def save_merged_bar_panels(gp, cnn, outdir):
+    # panel 1: ahead-of-nightly reference
+    gp_irf_mean = get_step_mean(gp, ["t_irf_reduce"])
+    cnn_load_mean = get_step_mean(cnn, ["t_model_load"])
+    gp_irf_std = np.nanstd(get_step_series(gp, ["t_irf_reduce"]))
+    cnn_load_std = np.nanstd(get_step_series(cnn, ["t_model_load"]))
+
+    # panel 2: simplified mapping
+    labels = ["preparation", "analysis", "total"]
     gp_vals = [
-        get_step_mean(gp, ["t_irf_reduce"]),
         get_step_mean(gp, ["t_preparation"]),
-        get_step_mean(gp, ["t_blindsearch"]),
-        get_step_mean(gp, ["t_photometry"]),
+        get_step_mean(gp, ["t_blindsearch", "t_photometry"]),
         get_step_mean(gp, ["t_total"]),
     ]
     cnn_vals = [
-        get_step_mean(cnn, ["t_model_load"]),
-        get_step_mean(cnn, ["t_preprocess", "t_cleaner"]),
-        get_step_mean(cnn, ["t_regressor", "t_decode"]),
-        get_step_mean(cnn, ["t_cleaner_metrics"]),
+        get_step_mean(cnn, cnn_prep_cols(cnn) + ["t_cleaner"]),
+        get_step_mean(cnn, ["t_regressor", "t_decode", "t_cleaner_metrics"]),
         get_step_mean(cnn, ["t_total"]),
     ]
     gp_std = [
-        np.nanstd(get_step_series(gp, ["t_irf_reduce"])),
         np.nanstd(get_step_series(gp, ["t_preparation"])),
-        np.nanstd(get_step_series(gp, ["t_blindsearch"])),
-        np.nanstd(get_step_series(gp, ["t_photometry"])),
+        np.nanstd(get_step_series(gp, ["t_blindsearch", "t_photometry"])),
         np.nanstd(get_step_series(gp, ["t_total"])),
     ]
     cnn_std = [
-        np.nanstd(get_step_series(cnn, ["t_model_load"])),
-        np.nanstd(get_step_series(cnn, ["t_preprocess", "t_cleaner"])),
-        np.nanstd(get_step_series(cnn, ["t_regressor", "t_decode"])),
-        np.nanstd(get_step_series(cnn, ["t_cleaner_metrics"])),
+        np.nanstd(get_step_series(cnn, cnn_prep_cols(cnn) + ["t_cleaner"])),
+        np.nanstd(get_step_series(cnn, ["t_regressor", "t_decode", "t_cleaner_metrics"])),
         np.nanstd(get_step_series(cnn, ["t_total"])),
     ]
-
-    y = np.arange(len(labels))
-    h = 0.38
     gp_plot = np.nan_to_num(gp_vals, nan=0.0)
     cnn_plot = np.nan_to_num(cnn_vals, nan=0.0)
     gp_err = np.nan_to_num(gp_std, nan=0.0)
     cnn_err = np.nan_to_num(cnn_std, nan=0.0)
-    fig, (ax_rt, ax_ref) = plt.subplots(
-        2, 1, figsize=(10, 8.5), gridspec_kw={"height_ratios": [4, 1.8]}
+
+    # panel 3: cnn grouped breakdown
+    cnn_labels = ["preparation", "cleaner", "regressor", "photometry"]
+    cnn_cols_preparation = ["t_prepare"] if "t_prepare" in cnn.columns else ["t_preprocess"]
+    cnn_groups = [
+        ["t_counts_map"] + cnn_cols_preparation,  # preparation (counts map + encode)
+        ["t_cleaner"],                     # cleaner
+        ["t_regressor", "t_decode"],       # regressor (includes decode)
+        ["t_cleaner_metrics"],             # photometry proxy
+    ]
+    cnn_gr_mean = np.nan_to_num(np.array([get_step_mean(cnn, cols) for cols in cnn_groups], dtype=float), nan=0.0)
+    cnn_gr_std = np.nan_to_num(np.array([np.nanstd(get_step_series(cnn, cols)) for cols in cnn_groups], dtype=float), nan=0.0)
+
+    # panel 4: gammapy grouped breakdown
+    gp_labels = ["preparation", "blindsearch", "photometry"]
+    gp_groups = [
+        ["t_setup", "t_preparation"],  # preparation (setup + make dataset)
+        ["t_blindsearch"],    # blindsearch
+        ["t_photometry"],     # photometry
+    ]
+    gp_gr_mean = np.nan_to_num(np.array([get_step_mean(gp, cols) for cols in gp_groups], dtype=float), nan=0.0)
+    gp_gr_std = np.nan_to_num(np.array([np.nanstd(get_step_series(gp, cols)) for cols in gp_groups], dtype=float), nan=0.0)
+
+    fig, axs = plt.subplots(2, 2, figsize=(14, 11))
+    h = 0.38
+
+    # 1) ahead of nightly activity
+    ax0 = axs[0, 0]
+    panel1_labels = ["reduce irf", "load model"]
+    panel1_vals = np.nan_to_num(np.array([gp_irf_mean, cnn_load_mean], dtype=float), nan=0.0)
+    panel1_err = np.nan_to_num(np.array([gp_irf_std, cnn_load_std], dtype=float), nan=0.0)
+    panel1_colors = ["#2E86AB", "#F18F01"]
+    y0 = np.arange(len(panel1_labels))
+    ax0.barh(y0, panel1_vals, xerr=panel1_err, capsize=4, height=0.6, color=panel1_colors)
+    ax0.set_yticks(y0)
+    ax0.set_yticklabels(panel1_labels)
+    ax0.set_xlabel("mean runtime [s]")
+    ax0.set_title("1) Ahead of Nightly Activity", fontsize=12)
+    ax0.grid(axis="x", alpha=0.3)
+    ax0.invert_yaxis()
+    ax0.legend(
+        handles=[
+            Patch(facecolor="#2E86AB", label="gammapy"),
+            Patch(facecolor="#F18F01", label="cnn"),
+        ],
+        loc=0,
     )
 
-    # on-the-fly runtime steps
-    idx_rt = [1, 2, 3, 4]
-    y_rt = np.arange(len(idx_rt))
-    labels_rt = [labels[i] for i in idx_rt]
-    gp_rt = [gp_plot[i] for i in idx_rt]
-    cnn_rt = [cnn_plot[i] for i in idx_rt]
-    gp_rt_err = [gp_err[i] for i in idx_rt]
-    cnn_rt_err = [cnn_err[i] for i in idx_rt]
+    # 2) simplified comparison
+    ax1 = axs[0, 1]
+    y1 = np.arange(len(labels))
+    ax1.barh(y1 - h / 2, gp_plot, xerr=gp_err, capsize=4, height=h, color="#2E86AB", label="gammapy")
+    ax1.barh(y1 + h / 2, cnn_plot, xerr=cnn_err, capsize=4, height=h, color="#F18F01", label="cnn")
+    ax1.set_yticks(y1)
+    ax1.set_yticklabels(labels)
+    ax1.set_xlabel("mean runtime [s]")
+    ax1.set_title("2) Pipeline Comparison", fontsize=12)
+    ax1.grid(axis="x", alpha=0.3)
+    ax1.invert_yaxis()
+    ax1.legend(loc=0)
 
-    ax_rt.barh(y_rt - h / 2, gp_rt, xerr=gp_rt_err, capsize=4, height=h, color="#2E86AB", label="gammapy")
-    ax_rt.barh(y_rt + h / 2, cnn_rt, xerr=cnn_rt_err, capsize=4, height=h, color="#F18F01", label="cnn")
-    ax_rt.set_yticks(y_rt)
-    ax_rt.set_yticklabels(labels_rt)
-    ax_rt.set_xlabel("mean runtime [s]")
-    ax_rt.set_title("On-the-fly Benchmark (mean +/- std)", fontsize=12)
-    ax_rt.grid(axis="x", alpha=0.3)
-    ax_rt.set_xscale("log")
-    ax_rt.set_xlim(left=1e-3)
-    ax_rt.invert_yaxis()
-    ax_rt.legend(loc="lower right")
+    # 3) cnn granular
+    ax2 = axs[1, 0]
+    y2 = np.arange(len(cnn_labels))
+    ax2.barh(y2, cnn_gr_mean, xerr=cnn_gr_std, capsize=4, height=0.65, color="#F18F01")
+    ax2.set_yticks(y2)
+    ax2.set_yticklabels(cnn_labels)
+    ax2.set_xlabel("mean runtime [s]")
+    ax2.set_title("3) CNN Breakdown", fontsize=12)
+    ax2.grid(axis="x", alpha=0.3)
+    ax2.invert_yaxis()
+    ax2.legend(handles=[Patch(facecolor="#F18F01", label="cnn")], loc=0)
 
-    # setup reference step
-    idx_ref = [0]
-    y_ref = np.arange(len(idx_ref))
-    labels_ref = [labels[i] for i in idx_ref]
-    gp_ref = [gp_plot[i] for i in idx_ref]
-    cnn_ref = [cnn_plot[i] for i in idx_ref]
-    gp_ref_err = [gp_err[i] for i in idx_ref]
-    cnn_ref_err = [cnn_err[i] for i in idx_ref]
+    # 4) gammapy granular
+    ax3 = axs[1, 1]
+    y3 = np.arange(len(gp_labels))
+    ax3.barh(y3, gp_gr_mean, xerr=gp_gr_std, capsize=4, height=0.65, color="#2E86AB")
+    ax3.set_yticks(y3)
+    ax3.set_yticklabels(gp_labels)
+    ax3.set_xlabel("mean runtime [s]")
+    ax3.set_title("4) Gammapy Breakdown", fontsize=12)
+    ax3.grid(axis="x", alpha=0.3)
+    ax3.invert_yaxis()
+    ax3.legend(handles=[Patch(facecolor="#2E86AB", label="gammapy")], loc=0)
 
-    ax_ref.barh(y_ref - h / 2, gp_ref, xerr=gp_ref_err, capsize=4, height=h, color="#2E86AB")
-    ax_ref.barh(y_ref + h / 2, cnn_ref, xerr=cnn_ref_err, capsize=4, height=h, color="#F18F01")
-    ax_ref.set_yticks(y_ref)
-    ax_ref.set_yticklabels(labels_ref)
-    ax_ref.set_xlabel("mean runtime [s]")
-    ax_ref.set_title("Setup Reference", fontsize=12)
-    ax_ref.grid(axis="x", alpha=0.3)
-    ax_ref.set_xscale("log")
-    ax_ref.set_xlim(left=1e-3)
-    ax_ref.invert_yaxis()
-    ax_ref.text(
-        0.98,
-        0.08,
-        "once-per-night\nreference only",
-        transform=ax_ref.transAxes,
-        ha="right",
-        va="bottom",
-        fontsize=9,
-        color="dimgray",
-        bbox=dict(facecolor="white", alpha=0.9, edgecolor="lightgray"),
-    )
-
-    fig.suptitle("Simplified Step-by-Step Benchmark", fontsize=13)
+    fig.suptitle("Merged Timing Bars", fontsize=14)
     fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "timing_simplified_bar.png"))
+    fig.savefig(os.path.join(outdir, "timing_bar_panels.png"))
     plt.close(fig)
 
 
@@ -282,9 +277,8 @@ def main():
     cnn = load_table(args.cnn)
 
     save_total_hist(gp=gp, cnn=cnn, outdir=args.outdir)
-    save_mean_bar(gp=gp, cnn=cnn, outdir=args.outdir)
+    save_merged_bar_panels(gp=gp, cnn=cnn, outdir=args.outdir)
     save_total_scatter(gp=gp, cnn=cnn, outdir=args.outdir)
-    save_simplified_bar(gp=gp, cnn=cnn, outdir=args.outdir)
 
 
 if __name__ == "__main__":
