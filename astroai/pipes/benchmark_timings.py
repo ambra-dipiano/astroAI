@@ -172,7 +172,7 @@ def get_step_series(df, cols):
 
 def save_simplified_bar(gp, cnn, outdir):
     # 1-to-1 conceptual mapping between gammapy and cnn timing steps
-    labels = ["prep_once_ref", "data_prep", "localization", "photometry", "total"]
+    labels = ["before nightly activities", "preparation", "localization", "photometry", "total"]
     gp_vals = [
         get_step_mean(gp, ["t_irf_reduce"]),
         get_step_mean(gp, ["t_preparation"]),
