@@ -17,11 +17,11 @@ from astroai.tools.utils import load_yaml_conf, extract_heatmap_from_table, norm
 import tensorflow as tf
 
 def preprocess_dl3_heatmap(dl3, conf):
-    # read events from dl3 and preprocess map for CNN input
+    # SECTION 1 - read events from dl3 and extract dl4 heatmap 
     heatmap = Table.read(dl3, hdu=1).to_pandas()
     heatmap = extract_heatmap_from_table(data=heatmap, trange=[conf['preprocess']['time_start'], conf['preprocess']['time_stop']], smoothing=conf['preprocess']['smoothing'], nbins=conf['preprocess']['binning'], filter=True)
 
-    # normalise map according to preprocessing setup
+    # SECTION 2 - normalise map according to preprocessing config
     norm_value = conf['preprocess']['norm_value']
     if norm_value == 1 and conf['preprocess']['stretch']:
         heatmap = stretch_smooth(heatmap, conf['preprocess']['smoothing'])
@@ -32,7 +32,7 @@ def preprocess_dl3_heatmap(dl3, conf):
     elif type(norm_value) == float and not conf['preprocess']['stretch']:
         heatmap = normalise_dataset(heatmap, max_value=norm_value)
 
-    # reshape as keras input tensor
+    # SECTION 3 - reshape as keras input tensor
     binning = conf['preprocess']['binning']
     if heatmap.shape != (binning, binning):
         heatmap = heatmap.reshape(binning, binning)
@@ -40,8 +40,11 @@ def preprocess_dl3_heatmap(dl3, conf):
     return heatmap
 
 def run_cnn_pipeline(dl3, conf, cleaner, regressor):
+    # Step 1 - Preprocess data (aka make map)
     heatmap = preprocess_dl3_heatmap(dl3=dl3, conf=conf)
+    # Step 2 - Apply CNN-cleaner (aka prepare clean map)
     prediction = cleaner.predict(heatmap)
+    # Step 3 - Apply CNN-regressor (aka blindsearch)
     candidate = regressor.predict(prediction) * conf['preprocess']['binning']
     return prediction, candidate
 
