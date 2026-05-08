@@ -14,7 +14,8 @@ from os.path import abspath, join, dirname, expandvars
 
 def main(pipe, filename, env, usr, part):
     job_name = f'{pipe}_{datetime.now().strftime("%Y%m%dT%H%M%S")}'
-    pipe = f'{pipe}'
+    pipe_map = {'cnn': 'run_cnn', 'gammapy': 'run_gammapy'}
+    pipe = pipe_map[pipe]
     # write bash
     outdir = join(dirname(abspath(__file__)), 'slurms')
     sh_outname = join(outdir, f'{job_name}.sh')
