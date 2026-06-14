@@ -69,7 +69,7 @@ def run_gammapy_pipeline(conf, dl3_file, target_name, target_dict):
     stats, candidate, sub_timing = ganalysis.run_gammapy_analysis_pipeline(dataset, target_name, target_dict)
     timing['t_analysis_total'] = perf_counter() - t0
     timing.update(sub_timing)
-    timing['t_preparation'] = timing['t_prepare'] + timing['t_dataset_read'] + timing['t_setup'] + timing['t_counts_map']
+    timing['t_preparation'] = np.nansum([timing['t_prepare'], timing['t_dataset_read'], timing['t_setup'], timing['t_counts_map']])
     # on-the-fly total excludes only one-time irf reduction
     timing['t_total'] = (perf_counter() - t_total_start) - timing['t_irf_reduce']
     return stats, candidate, timing

@@ -63,6 +63,7 @@ def run_cnn_pipeline(dl3, conf, cleaner, regressor):
 
     # keep aggregate preprocess timing for compatibility
     timing['t_preprocess'] = timing['t_counts_map'] + timing['t_prepare']
+    timing['t_preparation'] = timing['t_preprocess']
 
     # Step 2 - Apply CNN-cleaner (aka prepare clean map)
     t0 = perf_counter()
@@ -135,7 +136,7 @@ if __name__ == '__main__':
     makedirs(conf['execute']['outdir'], exist_ok=True)
     results = open(join(conf['execute']['outdir'], conf['execute']['outfile']), 'w+')
     if benchmark_enabled:
-        results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum t_model_load t_counts_map t_prepare t_preprocess t_cleaner t_regressor t_decode t_cleaner_metrics t_total\n')
+        results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum t_model_load t_counts_map t_prepare t_preprocess t_preparation t_cleaner t_regressor t_decode t_cleaner_metrics t_analysis_total t_total\n')
     else:
         results.write('seed loc_ra loc_dec loc_x loc_y clean_sum residual_sum on_clean_sum on_residual_sum\n')
 
@@ -178,9 +179,10 @@ if __name__ == '__main__':
         t0 = perf_counter()
         clean_sum, residual_sum, on_clean_sum, on_residual_sum = get_cleaner_metrics(heatmap=heatmap, prediction=prediction, row=row, conf=conf)
         timing['t_cleaner_metrics'] = perf_counter() - t0
+        timing['t_analysis_total'] = timing['t_cleaner'] + timing['t_regressor'] + timing['t_decode'] + timing['t_cleaner_metrics']
         timing['t_total'] = perf_counter() - t_start
         if benchmark_enabled:
-            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum} {t_model_load} {timing['t_counts_map']} {timing['t_prepare']} {timing['t_preprocess']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_cleaner_metrics']} {timing['t_total']}\n")
+            results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum} {t_model_load} {timing['t_counts_map']} {timing['t_prepare']} {timing['t_preprocess']} {timing['t_preparation']} {timing['t_cleaner']} {timing['t_regressor']} {timing['t_decode']} {timing['t_cleaner_metrics']} {timing['t_analysis_total']} {timing['t_total']}\n")
         else:
             results.write(f"{seed} {loc_ra} {loc_dec} {loc_x} {loc_y} {clean_sum} {residual_sum} {on_clean_sum} {on_residual_sum}\n")
 

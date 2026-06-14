@@ -258,22 +258,28 @@ class GAnalysis():
         
         # SECTION 2 - COUNTS MAP
         t0 = perf_counter()
+        ran_counts_map = False
         if self.conf['execute']['savefits']:
+            ran_counts_map = True
             # Write 3D Counts Cube as FITS
             output_name = os.path.join(self.conf['execute']['outdir'], f"seed{Id_OB}_counts_cube.fits")
             dataset.counts.write(output_name, overwrite=True)
         # Save Plot of 2D Counts Map
         if self.conf['execute']['plotfullfov'] or (self.conf['execute']['makemap'] and not self.conf['execute']['computeph']):
+            ran_counts_map = True
             self.plot_Wcs2DMap(dataset.counts, "Counts", stretch='sqrt', gti=gti)
         # Save Plots for Predicted Background Counts and Exposure
         if self.conf['execute']['plotirfs']:
+            ran_counts_map = True
             self.plot_Wcs2DMap(dataset.background, "IRF Bkgd Counts", stretch="sqrt"  , gti=dataset.gti)
             self.plot_Wcs2DMap(dataset.exposure  , "IRF Exposure"   , stretch="linear", gti=dataset.gti)
-        timing['t_counts_map'] = perf_counter() - t0
+        timing['t_counts_map'] = perf_counter() - t0 if ran_counts_map else np.nan
         
         # SECTION 3 - BLIND SEARCH
         t0 = perf_counter()
-        if self.conf['execute']['blindsearch']:            
+        ran_blindsearch = False
+        if self.conf['execute']['blindsearch']:
+            ran_blindsearch = True
             # Perform Blindsearch
             try:
                 target_ra, target_dec = self.run_blind_search(dataset, blind_search_method = 'first')
@@ -283,11 +289,13 @@ class GAnalysis():
             target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
             if name=='None':
                 name='Hotspot'        
-        timing['t_blindsearch'] = perf_counter() - t0
+        timing['t_blindsearch'] = perf_counter() - t0 if ran_blindsearch else np.nan
 
         # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
         t0 = perf_counter()
-        if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
+        ran_photometry = False
+        if self.conf['execute']['computeph'] and np.isfinite(target_ra) and np.isfinite(target_dec):
+            ran_photometry = True
             spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
         
             # Propagate statistical errors on Excess and Li&Ma Significance
@@ -296,17 +304,17 @@ class GAnalysis():
             stats['excess_error'] = excess_err       
             stats['sigma_error'] = sigma_err
         else:
-            stats={'counts'       :0.0,
-                   'counts_off'   :0.0,
-                   'excess'       :0.0,
-                   'alpha'        :0.0,
-                   'sigma'        :0.0,
-                   'livetime'     :0.0,
-                   'excess_error' :0.0,
-                   'sigma_error'  :0.0,
-                   'aeff_mean'    :0.0
+            stats={'counts'       :np.nan,
+                   'counts_off'   :np.nan,
+                   'excess'       :np.nan,
+                   'alpha'        :np.nan,
+                   'sigma'        :np.nan,
+                   'livetime'     :np.nan,
+                   'excess_error' :np.nan,
+                   'sigma_error'  :np.nan,
+                   'aeff_mean'    :np.nan
                    }
-        timing['t_photometry'] = perf_counter() - t0
+        timing['t_photometry'] = perf_counter() - t0 if ran_photometry else np.nan
         return stats, target_dict, timing
 
     def read_events(self, dataset):
