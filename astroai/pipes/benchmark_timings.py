@@ -92,6 +92,21 @@ def is_nullish_timing(series, eps=1e-12):
     return np.nanmax(np.abs(vals.to_numpy(dtype=float))) <= eps
 
 
+def filter_visible_steps(labels, means, stds, eps=1e-12, hide_zero=True):
+    kept_labels = []
+    kept_means = []
+    kept_stds = []
+    for lab, mean, std in zip(labels, means, stds):
+        if np.isnan(mean):
+            continue
+        if hide_zero and abs(mean) <= eps:
+            continue
+        kept_labels.append(lab)
+        kept_means.append(mean)
+        kept_stds.append(0.0 if np.isnan(std) else std)
+    return kept_labels, np.array(kept_means, dtype=float), np.array(kept_stds, dtype=float)
+
+
 def save_total_scatter(gp, cnn, outdir):
     if "seed" not in gp.columns or "seed" not in cnn.columns:
         return
@@ -141,7 +156,7 @@ def cnn_prep_cols(df):
     return cols
 
 
-def save_merged_bar_panels(gp, cnn, outdir):
+def save_merged_bar_panels(gp, cnn, outdir, include_breakdown=False):
     # panel 1: ahead-of-nightly reference
     gp_irf_mean = get_step_mean(gp, ["t_irf_reduce"])
     cnn_load_mean = get_step_mean(cnn, ["t_model_load"])
@@ -175,33 +190,45 @@ def save_merged_bar_panels(gp, cnn, outdir):
     gp_err = np.nan_to_num(gp_std, nan=0.0)
     cnn_err = np.nan_to_num(cnn_std, nan=0.0)
 
-    # panel 3: cnn grouped breakdown
-    cnn_labels = ["preparation", "cleaner", "regressor", "photometry"]
+    # panel 3: cnn granular breakdown
+    cnn_labels = ["counts map", "encoding", "cleaner", "regressor", "decoding", "photometry"]
     cnn_cols_preparation = ["t_prepare"] if "t_prepare" in cnn.columns else ["t_preprocess"]
     cnn_groups = [
-        ["t_counts_map"] + cnn_cols_preparation,  # preparation (counts map + encode)
-        ["t_cleaner"],                     # cleaner
-        ["t_regressor", "t_decode"],       # regressor (includes decode)
-        ["t_cleaner_metrics"],             # photometry proxy
+        ["t_counts_map"],             # counts map extraction (dl3 -> dl4)
+        cnn_cols_preparation,         # encoding / preparation
+        ["t_cleaner"],                # cleaner
+        ["t_regressor"],              # regressor
+        ["t_decode"],                 # decoding
+        ["t_cleaner_metrics"],        # photometry proxy
     ]
-    cnn_gr_mean = np.nan_to_num(np.array([get_step_mean(cnn, cols) for cols in cnn_groups], dtype=float), nan=0.0)
-    cnn_gr_std = np.nan_to_num(np.array([np.nanstd(get_step_series(cnn, cols)) for cols in cnn_groups], dtype=float), nan=0.0)
+    cnn_gr_mean = np.array([get_step_mean(cnn, cols) for cols in cnn_groups], dtype=float)
+    cnn_gr_std = np.array([np.nanstd(get_step_series(cnn, cols)) for cols in cnn_groups], dtype=float)
+    cnn_labels, cnn_gr_mean, cnn_gr_std = filter_visible_steps(cnn_labels, cnn_gr_mean, cnn_gr_std, hide_zero=True)
 
-    # panel 4: gammapy grouped breakdown
-    gp_labels = ["preparation", "blindsearch", "photometry"]
+    # panel 4: gammapy granular breakdown
+    gp_labels = ["prepare", "dataset read", "setup", "counts map", "blindsearch", "photometry"]
     gp_groups = [
-        ["t_setup", "t_preparation"],  # preparation (setup + make dataset)
+        ["t_prepare"],        # prepare
+        ["t_dataset_read"],   # dataset read
+        ["t_setup"],          # setup
+        ["t_counts_map"],     # counts map
         ["t_blindsearch"],    # blindsearch
         ["t_photometry"],     # photometry
     ]
-    gp_gr_mean = np.nan_to_num(np.array([get_step_mean(gp, cols) for cols in gp_groups], dtype=float), nan=0.0)
-    gp_gr_std = np.nan_to_num(np.array([np.nanstd(get_step_series(gp, cols)) for cols in gp_groups], dtype=float), nan=0.0)
+    gp_gr_mean = np.array([get_step_mean(gp, cols) for cols in gp_groups], dtype=float)
+    gp_gr_std = np.array([np.nanstd(get_step_series(gp, cols)) for cols in gp_groups], dtype=float)
+    gp_labels, gp_gr_mean, gp_gr_std = filter_visible_steps(gp_labels, gp_gr_mean, gp_gr_std, hide_zero=True)
 
-    fig, axs = plt.subplots(2, 2, figsize=(14, 11))
+    if include_breakdown:
+        fig, axs = plt.subplots(2, 2, figsize=(14, 11))
+        ax0, ax1 = axs[0, 0], axs[0, 1]
+        ax2, ax3 = axs[1, 0], axs[1, 1]
+    else:
+        fig, axs = plt.subplots(1, 2, figsize=(14, 5.5))
+        ax0, ax1 = axs[0], axs[1]
     h = 0.38
 
     # 1) ahead of nightly activity
-    ax0 = axs[0, 0]
     panel1_labels = ["reduce irf", "load model"]
     panel1_vals = np.nan_to_num(np.array([gp_irf_mean, cnn_load_mean], dtype=float), nan=0.0)
     panel1_err = np.nan_to_num(np.array([gp_irf_std, cnn_load_std], dtype=float), nan=0.0)
@@ -223,7 +250,6 @@ def save_merged_bar_panels(gp, cnn, outdir):
     )
 
     # 2) simplified comparison
-    ax1 = axs[0, 1]
     y1 = np.arange(len(labels))
     ax1.barh(y1 - h / 2, gp_plot, xerr=gp_err, capsize=4, height=h, color="#2E86AB", label="gammapy")
     ax1.barh(y1 + h / 2, cnn_plot, xerr=cnn_err, capsize=4, height=h, color="#F18F01", label="cnn")
@@ -235,29 +261,28 @@ def save_merged_bar_panels(gp, cnn, outdir):
     ax1.invert_yaxis()
     ax1.legend(loc=0)
 
-    # 3) cnn granular
-    ax2 = axs[1, 0]
-    y2 = np.arange(len(cnn_labels))
-    ax2.barh(y2, cnn_gr_mean, xerr=cnn_gr_std, capsize=4, height=0.65, color="#F18F01")
-    ax2.set_yticks(y2)
-    ax2.set_yticklabels(cnn_labels)
-    ax2.set_xlabel("mean runtime [s]")
-    ax2.set_title("3) CNN Breakdown", fontsize=12)
-    ax2.grid(axis="x", alpha=0.3)
-    ax2.invert_yaxis()
-    ax2.legend(handles=[Patch(facecolor="#F18F01", label="cnn")], loc=0)
+    if include_breakdown:
+        # 3) cnn granular
+        y2 = np.arange(len(cnn_labels))
+        ax2.barh(y2, cnn_gr_mean, xerr=cnn_gr_std, capsize=4, height=0.65, color="#F18F01")
+        ax2.set_yticks(y2)
+        ax2.set_yticklabels(cnn_labels)
+        ax2.set_xlabel("mean runtime [s]")
+        ax2.set_title("3) CNN Breakdown", fontsize=12)
+        ax2.grid(axis="x", alpha=0.3)
+        ax2.invert_yaxis()
+        ax2.legend(handles=[Patch(facecolor="#F18F01", label="cnn")], loc=0)
 
-    # 4) gammapy granular
-    ax3 = axs[1, 1]
-    y3 = np.arange(len(gp_labels))
-    ax3.barh(y3, gp_gr_mean, xerr=gp_gr_std, capsize=4, height=0.65, color="#2E86AB")
-    ax3.set_yticks(y3)
-    ax3.set_yticklabels(gp_labels)
-    ax3.set_xlabel("mean runtime [s]")
-    ax3.set_title("4) Gammapy Breakdown", fontsize=12)
-    ax3.grid(axis="x", alpha=0.3)
-    ax3.invert_yaxis()
-    ax3.legend(handles=[Patch(facecolor="#2E86AB", label="gammapy")], loc=0)
+        # 4) gammapy granular
+        y3 = np.arange(len(gp_labels))
+        ax3.barh(y3, gp_gr_mean, xerr=gp_gr_std, capsize=4, height=0.65, color="#2E86AB")
+        ax3.set_yticks(y3)
+        ax3.set_yticklabels(gp_labels)
+        ax3.set_xlabel("mean runtime [s]")
+        ax3.set_title("4) Gammapy Breakdown", fontsize=12)
+        ax3.grid(axis="x", alpha=0.3)
+        ax3.invert_yaxis()
+        ax3.legend(handles=[Patch(facecolor="#2E86AB", label="gammapy")], loc=0)
 
     fig.suptitle("Merged Timing Bars", fontsize=14)
     fig.tight_layout()
@@ -270,6 +295,7 @@ def main():
     parser.add_argument("--gp", type=str, default="benchmark/time_gp_10.txt", help="gammapy timing file")
     parser.add_argument("--cnn", type=str, default="benchmark/time_cnn_10.txt", help="cnn timing file")
     parser.add_argument("-o", "--outdir", type=str, default="benchmark", help="output directory for timing plots")
+    parser.add_argument("--with-breakdown", action="store_true", help="include panels 3 and 4 in timing_bar_panels plot")
     args = parser.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -277,7 +303,7 @@ def main():
     cnn = load_table(args.cnn)
 
     save_total_hist(gp=gp, cnn=cnn, outdir=args.outdir)
-    save_merged_bar_panels(gp=gp, cnn=cnn, outdir=args.outdir)
+    save_merged_bar_panels(gp=gp, cnn=cnn, outdir=args.outdir, include_breakdown=args.with_breakdown)
     save_total_scatter(gp=gp, cnn=cnn, outdir=args.outdir)
 
 
