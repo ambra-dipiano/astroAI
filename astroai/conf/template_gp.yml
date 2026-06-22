@@ -60,3 +60,7 @@ blindsearch:
   maxsrc:                          # maximum number of candidates
   plotzoom:                        # option to plot a candidate zoom-in (yes/no)
   corr_rad:                        # correlation radius
+
+# BENCHMARK OPTIONS
+benchmark:
+  enabled:                         # option to run benchmark products (yes/no)
