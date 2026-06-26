@@ -16,6 +16,7 @@
 # *****************************************************************************
 
 import os
+from time import perf_counter
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
@@ -243,62 +244,79 @@ class GAnalysis():
         return dataset
     
     def run_gammapy_analysis_pipeline(self, dataset, name, target_dict):
-        # SECTION 1 - Setup.
+        timing = {'t_setup': np.nan,
+                  't_counts_map': np.nan,
+                  't_blindsearch': np.nan,
+                  't_photometry': np.nan}
+
+        # SECTION 1 - Setup
+        t0 = perf_counter()
         # Get the ID of the Observation Block and of the current data batch (Job ID)
         Id_OB = self.conf['simulation']['id']
         # Read and set all the data, IRFs, GTIs and make appropriate corrections.
-        with BenchmarkTask('dl3_to_counts_map', seed=Id_OB):
-            dataset, event_list, gti = self.read_events(dataset)
+        dataset, event_list, gti = self.read_events(dataset)
+        timing['t_setup'] = perf_counter() - t0
         
         # SECTION 2 - COUNTS MAP
+        t0 = perf_counter()
+        ran_counts_map = False
         if self.conf['execute']['savefits']:
+            ran_counts_map = True
             # Write 3D Counts Cube as FITS
             output_name = os.path.join(self.conf['execute']['outdir'], f"seed{Id_OB}_counts_cube.fits")
             dataset.counts.write(output_name, overwrite=True)
         # Save Plot of 2D Counts Map
-        # When AP is inactive, jobconf.makemap will control this functionality.
-        # When AP is active, jobconf.makemap will create the zoomed map, only plotfullfov can print this. 
         if self.conf['execute']['plotfullfov'] or (self.conf['execute']['makemap'] and not self.conf['execute']['computeph']):
+            ran_counts_map = True
             self.plot_Wcs2DMap(dataset.counts, "Counts", stretch='sqrt', gti=gti)
         # Save Plots for Predicted Background Counts and Exposure
         if self.conf['execute']['plotirfs']:
+            ran_counts_map = True
             self.plot_Wcs2DMap(dataset.background, "IRF Bkgd Counts", stretch="sqrt"  , gti=dataset.gti)
             self.plot_Wcs2DMap(dataset.exposure  , "IRF Exposure"   , stretch="linear", gti=dataset.gti)
+        timing['t_counts_map'] = perf_counter() - t0 if ran_counts_map else np.nan
         
         # SECTION 3 - BLIND SEARCH
-        with BenchmarkTask('core_analysis', seed=Id_OB):
-            if self.conf['execute']['blindsearch']:            
-                # Perform Blindsearch
-                try:
-                    target_ra, target_dec = self.run_blind_search(dataset, blind_search_method = 'first')
-                except:
-                    target_ra, target_dec = np.nan, np.nan
-                # Update target dict
-                target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
-                if name=='None':
-                    name='Hotspot'        
+        t0 = perf_counter()
+        ran_blindsearch = False
+        if self.conf['execute']['blindsearch']:
+            ran_blindsearch = True
+            # Perform Blindsearch
+            try:
+                target_ra, target_dec = self.run_blind_search(dataset, blind_search_method = 'first')
+            except:
+                target_ra, target_dec = np.nan, np.nan
+            # Update target dict
+            target_dict = {'ra': target_ra, 'dec': target_dec, 'rad': self.conf['photometry']['onoff_radius']}
+            if name=='None':
+                name='Hotspot'        
+        timing['t_blindsearch'] = perf_counter() - t0 if ran_blindsearch else np.nan
 
-            # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
-            if self.conf['execute']['computeph'] and (target_ra, target_dec) != (np.nan, np.nan):
-                spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
-            
-                # Propagate statistical errors on Excess and Li&Ma Significance
-                excess_err= np.sqrt(np.power(np.sqrt(stats['counts']),2) + np.power(np.sqrt(stats['counts_off']),2))
-                sigma_err = 0
-                stats['excess_error'] = excess_err       
-                stats['sigma_error'] = sigma_err
-            else:
-                stats={'counts'       :0.0,
-                       'counts_off'   :0.0,
-                       'excess'       :0.0,
-                       'alpha'        :0.0,
-                       'sigma'        :0.0,
-                       'livetime'     :0.0,
-                       'excess_error' :0.0,
-                       'sigma_error'  :0.0,
-                       'aeff_mean'    :0.0
-                       }
-        return stats, target_dict
+        # SECTION 4 - APERTURE PHOTOMETRY ON THE TARGET (1D Analysis)
+        t0 = perf_counter()
+        ran_photometry = False
+        if self.conf['execute']['computeph'] and np.isfinite(target_ra) and np.isfinite(target_dec):
+            ran_photometry = True
+            spectrum_dataset_OnOff, stats = self.run_aperture_photometry(dataset, target_dict, name, event_list, gti, method=self.conf['photometry']['onoff_method'])
+        
+            # Propagate statistical errors on Excess and Li&Ma Significance
+            excess_err= np.sqrt(np.power(np.sqrt(stats['counts']),2) + np.power(np.sqrt(stats['counts_off']),2))
+            sigma_err = 0
+            stats['excess_error'] = excess_err       
+            stats['sigma_error'] = sigma_err
+        else:
+            stats={'counts'       :np.nan,
+                   'counts_off'   :np.nan,
+                   'excess'       :np.nan,
+                   'alpha'        :np.nan,
+                   'sigma'        :np.nan,
+                   'livetime'     :np.nan,
+                   'excess_error' :np.nan,
+                   'sigma_error'  :np.nan,
+                   'aeff_mean'    :np.nan
+                   }
+        timing['t_photometry'] = perf_counter() - t0 if ran_photometry else np.nan
+        return stats, target_dict, timing
 
     def read_events(self, dataset):
         # Read the Event List
@@ -394,9 +412,10 @@ class GAnalysis():
             raise NotImplementedError('Currently only the "first" method is available.')
         
         # Write selected source as a DS9 region file. Create job directory if it does not exist
-        os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
-        regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simulation']['skyframeref']), OnOffRegionRadius)
-        regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)        
+        if self.conf['execute']['mapreg']:
+            os.makedirs(self.conf['execute']['outdir'], exist_ok=True)
+            regions = CircleSkyRegion(SkyCoord(target_ra, target_dec, unit=u.deg, frame = self.conf['simulation']['skyframeref']), OnOffRegionRadius)
+            regions.write(os.path.join(self.conf['execute']['outdir'], f"{self.conf['simulation']['id']}_candidates.ds9"), overwrite=True)
         return target_ra, target_dec
 
     def run_aperture_photometry(self, dataset, target_dict, target_name, event_list, gti, method="reflection"):
@@ -442,8 +461,9 @@ class GAnalysis():
                     'offset'     : np.nan,
                     }
             return spectrum_dataset_OnOff, stats
-        else:   
-            Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)           
+        else:
+            if self.conf['execute']['mapreg']:
+                Regions(off_regions).write(os.path.join(self.conf['execute']['outdir'], 'hotspots.reg'), overwrite=True)
 
         # 6 - Compute the OFF Regions: Counts are taken from the Event List
         spectrum_dataset_OnOff = refl_bkg_maker.run(spectrum_dataset, obs)

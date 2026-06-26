@@ -10,8 +10,10 @@ cnn_regressor
 slurms
 tutorial_data
 data
+benchmark
 
 # files
+*ipynb
 *.out
 *.sh
 *.ll
